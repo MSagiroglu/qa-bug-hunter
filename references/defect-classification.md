@@ -40,8 +40,13 @@ Base severity on business impact, not on how surprising the behavior felt.
 - Test data used
 - Expected result + which oracle level it came from
 - Actual result
-- Evidence: screenshot, console errors, network request/response
-  (status + payload), relevant source file/line
+- Evidence: screenshot, **video or trace recording of the reproduction
+  sequence when the execution tool supports it** (Playwright trace/video,
+  the mobile tool's session recording, etc. — check in Phase 1 whether this
+  is enabled in the target repo's test config; if it isn't, say so in the
+  report as a testing-infrastructure gap instead of silently only providing
+  a screenshot), console errors, network request/response (status +
+  payload), relevant source file/line
 - Root cause hypothesis (if investigation reached one)
 - Confidence (how sure are you this reproduces reliably)
 

@@ -10,6 +10,29 @@ This repo *is* the skill package. It's stack-agnostic: it never assumes
 Playwright, React, or any specific framework — every run starts by
 detecting what the target repo actually uses.
 
+## What's in a finding
+
+Every reported defect ships with evidence, not just a description:
+reproduction steps, exact input values, the source file/line responsible,
+screenshot, and — when the execution tool supports it (e.g. Playwright's
+video/trace) — a video or trace of the reproduction. It also runs an
+explicit "never trust the UI's success toast" check on every write-capable
+feature: refresh mid-save, drop the connection mid-request, double-submit,
+throttle the connection — then verify what actually persisted, independent
+of what the screen claimed. See `references/critical-defect-patterns.md`.
+
+## Honest scope — what this does *not* do
+
+This is a methodology an AI agent follows, not a device lab. It drives
+whatever test tooling is already configured and reachable: Playwright/
+Cypress for web, or Detox/Appium/Maestro/Patrol/XCUITest/Espresso for
+mobile — *if* that tooling exists in the target repo and there's a reachable
+simulator/emulator/device to run it against. It does not open a simulator
+or emulator by itself. If no reachable execution path exists, the skill is
+required to say so explicitly (in the report's Environment/Automation
+Issues section) instead of quietly downgrading to a source-only pass
+without flagging it.
+
 ## Files
 
 - `SKILL.md` — orchestration (the phases, in what order, what to read when).
@@ -27,6 +50,8 @@ detecting what the target repo actually uses.
   means when there's no spec.
 - `references/defect-classification.md` — taxonomy, severity rubric,
   required evidence fields.
+- `references/critical-defect-patterns.md` — ghost-success/persistence
+  verification and the interrupted-write scenarios to run it against.
 - `references/report-template.md` — the QA report structure.
 - `PORTABLE.md` — the same methodology, self-contained (no file
   references), for tools that can't read local files — paste it as a

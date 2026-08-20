@@ -61,6 +61,27 @@ after any significant action:
 - What happens on cancel-and-reopen, refresh mid-flow, or browser
   back/forward?
 
+## Responsive / Viewport Testing (web)
+
+For any screen with a viewport-dependent layout, resize/test at minimum:
+narrow mobile width (~375px), tablet (~768px), and standard desktop
+(~1280px+). At each size, confirm the critical actions for the feature
+under test (submit button, validation/error messages, primary CTA) are
+still reachable and visible — not clipped, not pushed below the fold, not
+hidden behind a collapsed nav that never gets checked. Also check for
+horizontal scroll/content overflow, which usually indicates a fixed-width
+element that wasn't meant to be there. This is cheap to run (a viewport
+resize, not a new device) and frequently uncovers layout defects nobody
+uses a debugger to find because they never manually resize the window.
+
+## Interrupted-Write / Persistence Verification
+
+See `critical-defect-patterns.md` — for any feature that writes data, never
+classify a write as successful based on the UI's own success signal alone.
+Run the interrupted-write scenarios there (refresh mid-write, network drop
+timed to the write, double-submit, throttled connection) and verify actual
+persistence independently of what the UI displayed.
+
 ## Exploratory Testing
 
 After scripted scenarios, spend a bounded amount of effort deviating from

@@ -31,6 +31,30 @@ below exists to answer one question: **how can this break?** Do not report a
 finding as a defect on a failed assertion alone — investigate first (see
 Phase 6).
 
+## Capability boundaries (state these honestly, don't oversell)
+
+This skill is a methodology, not an execution engine. It can only drive
+whatever test/automation tooling is actually configured and reachable in
+the current environment:
+
+- **Web**: whatever E2E tool discovery finds (Playwright/Cypress/etc.), or
+  direct HTTP calls / a manual browser session if none exists.
+- **Mobile (iOS/Android, native or React Native/Flutter)**: whatever mobile
+  E2E tool discovery finds already configured in the repo (Detox, Appium,
+  Maestro, Patrol, XCUITest, Espresso) *and* actually runnable in this
+  environment (a reachable simulator/emulator/device, or a device-farm
+  connection). This skill does not itself provide simulator/emulator
+  control — it cannot open an iOS Simulator or Android Emulator on its own
+  unless the host tool exposes that capability.
+
+If Phase 1 discovery finds no reachable execution path for the target
+platform, **say so explicitly** — in the response and in the report's
+Environment/Automation Issues section — rather than silently limiting
+yourself to a code-review-only pass without flagging that the pass was
+incomplete. "I traced this from source but could not execute against a
+running app/simulator" is a valid, honest outcome; claiming full coverage
+when you only read source is not.
+
 ## Phase 1 — Discovery (always first, never skip)
 
 Read `references/discovery.md` and follow it before generating or running
@@ -79,6 +103,16 @@ loss, permission-state changes, deep links/push notifications, biometric
 auth, device/OS fragmentation). Same gating rule applies — only scenarios
 actually reachable by the feature under test.
 
+**Every write-capable feature (create/update/delete/upload), web or
+mobile:** also read `references/critical-defect-patterns.md` and include
+its interrupted-write scenarios (refresh/kill mid-write, network drop
+timed to the write, double-submit, throttled connection) — never classify
+a write as successful based on the UI's own success signal alone.
+
+**Web layout:** include the Responsive/Viewport Testing technique from
+`references/test-design-techniques.md` for any screen with viewport-
+dependent layout.
+
 ## Phase 4 — Execution loop
 
 Per scenario, run this loop and don't skip steps:
@@ -112,10 +146,14 @@ a browser devtools check).
 
 For every suspicious or confirmed finding, capture what's available and
 relevant: repro steps, exact input values, expected vs. actual result,
-screenshot, console errors, the actual network request/response
-(status, payload), and the source file/line responsible. Never report a
-defect from an assertion failure alone — Phase 4's investigation step is
-mandatory first.
+screenshot, **video or trace recording of the reproduction if the execution
+tool supports it** (check during Phase 1 whether video/trace capture is
+enabled in the target's test config — e.g. Playwright's `use.video`/
+`use.trace`; if it's off, note that as a testing-infrastructure gap in the
+report instead of silently only providing a screenshot), console errors,
+the actual network request/response (status, payload), and the source
+file/line responsible. Never report a defect from an assertion failure
+alone — Phase 4's investigation step is mandatory first.
 
 ## Phase 6 — Defect classification
 
@@ -156,4 +194,9 @@ exploratory pass on the wrong feature wastes the whole pipeline.
       `references/defect-classification.md` requires.
 - [ ] Oracle used is stated for each finding; low-confidence findings are
       labeled "Behavior Requiring Clarification," not asserted as bugs.
+- [ ] Every write-capable scenario checked persistence independently of the
+      UI's own success signal (`references/critical-defect-patterns.md`).
+- [ ] Execution-path gaps (no reachable simulator/emulator, video/trace
+      disabled, etc.) are stated explicitly, not silently absorbed into a
+      quieter pass.
 - [ ] Report written to `docs/qa-reports/` and summarized in-conversation.

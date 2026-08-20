@@ -14,6 +14,19 @@ Once a requested flow works, most agents stop. Don't. The goal here is
 ad-hoc guessing, reporting a finding as confirmed only when there's actual
 evidence behind it — not just a failed assertion.
 
+## Capability boundaries (state honestly, don't oversell)
+
+This is a methodology, not an execution engine. It can only drive whatever
+test tooling is actually configured and reachable right now: for web,
+whatever E2E tool discovery finds (or direct HTTP/manual browser if none);
+for mobile, whatever mobile E2E tool discovery finds already configured
+*and* actually runnable (a reachable simulator/emulator/device) — it
+cannot open a simulator or emulator on its own unless your host tool
+exposes that. If no reachable execution path exists for the target
+platform, say so explicitly in your response and in the report's
+Environment/Automation Issues section rather than silently doing a
+code-review-only pass without flagging it as incomplete.
+
 ## Phase 1 — Discovery (always first)
 
 Before generating or running any test, using whatever file-read/shell
@@ -88,6 +101,24 @@ maximize scenario count):
 - **Negative Testing** — empty required fields, wrong type, out-of-range,
   over/under length, duplicate submit, incomplete form, out-of-order
   dependent-field changes.
+- **Responsive/Viewport Testing (web)** — for viewport-dependent layouts,
+  test at narrow mobile (~375px), tablet (~768px), and desktop (~1280px+)
+  widths; confirm critical actions stay reachable/visible and there's no
+  horizontal overflow.
+
+**Interrupted-write / persistence verification — for any write-capable
+feature (create/update/delete/upload), web or mobile:** never classify a
+write as successful based on the UI's own success signal alone (toast,
+checkmark, redirect). Reload/re-fetch from a source independent of that
+signal to confirm actual persistence. Build a 2×2 for what you find: UI
+success + persisted = correct; UI success + NOT persisted = **ghost
+success, usually High/Critical**; UI error + persisted = **CONFIRMED
+defect, duplicate/orphan risk**; UI error + not persisted = correct. Run
+this against: submit-then-immediately-refresh, submit-then-navigate-away,
+network drop timed to land mid-request (then check both UI and actual
+state after reconnect, and whether a retry duplicates), a slow-but-
+eventually-successful request (does a client timeout show an error while
+the server still commits?), and rapid double-submit.
 
 Input mutation menu (gate every item on what discovery actually found —
 don't apply blindly):
@@ -142,9 +173,12 @@ infrastructure to answer one hypothesis.
 ## Phase 5 — Evidence
 
 For suspicious/confirmed findings, capture: repro steps, exact input
-values, expected vs. actual, screenshot if available, console errors,
-actual network request/response (status + payload), and the responsible
-source file/line.
+values, expected vs. actual, screenshot if available, **video/trace
+recording of the reproduction if your execution tool supports it** (check
+during discovery whether it's enabled — e.g. Playwright's `video`/`trace`
+options; if it's off, note that as a testing-infrastructure gap rather than
+silently only giving a screenshot), console errors, actual network
+request/response (status + payload), and the responsible source file/line.
 
 ## Phase 6 — Oracle & classification
 
@@ -214,3 +248,7 @@ to learn whether anything critical was found.
 - [ ] Every confirmed defect has all required evidence fields.
 - [ ] Oracle level stated per finding; low-confidence findings labeled
       "Behavior Requiring Clarification," not asserted as bugs.
+- [ ] Every write-capable scenario checked persistence independently of the
+      UI's own success signal.
+- [ ] Execution-path gaps (no reachable simulator/emulator, video/trace
+      disabled, etc.) are stated explicitly, not silently absorbed.
