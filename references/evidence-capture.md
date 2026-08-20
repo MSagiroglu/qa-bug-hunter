@@ -18,6 +18,9 @@ that date/module's report from `report-template.md`. Inside:
   capture is enabled (see `SKILL.md` Phase 5's ask-before-enabling rule;
   this file doesn't change that rule, it just says where the output goes
   once it exists)
+- `db-query-<n>-<label>.json`/`.txt` — only when a database connection
+  was already available (`database-verification.md`); the query text and
+  the specific row(s) relevant to the finding, not a full table dump
 
 `<n>` increments per finding within the run; `<label>` is a short slug
 (`save-request`, `blocked-toast`, `min-target-network`). Every filename

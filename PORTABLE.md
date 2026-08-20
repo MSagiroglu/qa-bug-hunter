@@ -87,6 +87,20 @@ than it being a leaf feature nothing depends on. If shared, this
 triggers the impact-analysis section below automatically as part of this
 same discovery pass.
 
+**Database access:** if a database connection is already available (a
+connection string in the target's own config for a test/staging
+environment, credentials the user explicitly provided) — not something
+you go set up — use it as the strongest available persistence oracle for
+the rest of this run: read-only queries only, always verify through the
+app's own write path (API/UI), never seed or fix data via a direct write.
+It strengthens the persistence check below (stronger than API/UI
+re-fetch, since it doesn't share a code path with whatever might be
+lying) and impact-analysis's consumer-state verification.
+
+**Multi-language apps:** if the app supports more than one language/
+locale, include the i18n scenarios in Phase 3 below. Skip this for
+single-language apps.
+
 Do not skip this phase. Every mutation you apply later must trace back to
 something found here.
 
@@ -156,6 +170,46 @@ maximize scenario count):
   video/trace below) rather than silently installing binaries. A
   cross-engine mismatch is itself worth reporting even when it's not the
   original finding.
+
+**Accessibility (a11y) — once per screen, not per scenario:** every `<img>`
+conveying information has non-empty `alt` (purely decorative images have
+`alt=""` deliberately — check which case applies, don't assume empty is
+fine by default); every form input has an associated label/aria-label;
+every interactive control is keyboard-reachable and operable, with focus
+moving into a modal on open and back to the trigger on close, and no
+keyboard traps; heading hierarchy doesn't skip levels; low-contrast text
+gets flagged as worth a real contrast-ratio check rather than a guessed
+pass/fail. If an a11y scanning tool (axe-core or equivalent) is already a
+dependency, run it and treat violations as ordinary findings; adding one
+that isn't present is a new dependency — ask first, same as a new browser
+engine. Concrete motivating case: this skill's own first live run found
+five broken images, and all five had `alt=""` — a dedicated a11y pass
+catches that on purpose instead of by accident.
+
+**i18n/localization (multi-language apps only):** switch to whichever
+supported language is likely to produce the longest strings (check the
+app's own language resources rather than guessing) and check for text
+overflow/clipping/wrapping in buttons, labels, and messages. Verify
+dates/numbers/currency render in the active locale's convention (decimal
+separator, date order, currency symbol placement), not a hardcoded one.
+If an RTL language is supported, confirm the layout actually mirrors
+(alignment, icon position, nav direction), not just right-aligned text
+inside a still-LTR layout. For count-dependent text ("1 gün kaldı" vs "5
+gün kaldı"), check 0/1/plural boundaries in each language with different
+pluralization rules.
+
+**Observational security hygiene (every feature, passive only — this is
+QA, not security testing):** using traffic this run already produces,
+never crafting attack input — check whether an API response contains
+fields the UI never shows that shouldn't be sent to this role at all
+(overexposure: the frontend-only-constraint pattern applied to data
+exposure instead of validation); whether a naturally-occurring error
+(not one you induced) leaks a stack trace/internal path/DB error;
+whether HTTP actually redirects to HTTPS (check the failure case, not
+just that it happened to work once); whether session cookies are marked
+Secure/HttpOnly. Never attempt injection, auth bypass, fuzzing, or any
+action meant to compromise rather than observe — that's a different,
+separately-authorized engagement, not this skill.
 
 **Interrupted-write / persistence verification — for any write-capable
 feature (create/update/delete/upload), web or mobile:** never classify a
@@ -255,7 +309,9 @@ Evidence is a real saved file, not a sentence describing one. Store
 under `docs/qa-reports/evidence/<date>-<module>/`:
 `screenshot-<n>-<label>.png`, `network-<n>-<label>.json` (request+response:
 method, URL, status, payloads), `console-<n>-<label>.log`, and
-`video-<n>-<label>.<ext>`/`trace-<n>.zip` only if enabled (see below).
+`video-<n>-<label>.<ext>`/`trace-<n>.zip` only if enabled (see below), and
+`db-query-<n>-<label>.json`/`.txt` (query text + the specific relevant
+rows, not a full dump) when a database connection was already available.
 
 Two capture paths: **scripted** (preferred, whenever a test tool is
 driving) — use the tool's native screenshot-to-path call, and for
@@ -318,6 +374,14 @@ hypothesis, confidence.
 Common trap: frontend/backend validation mismatch is not automatically a
 defect — check which side is meant to be the source of truth before
 concluding it's a bug.
+
+**Regression lock-in:** finding a defect once is half the job. For every
+CONFIRMED DEFECT, if there's an execution tool and existing test suite to
+add to, ask the user whether to add a permanent regression test for it
+now, following the target's existing conventions/naming. If yes, write
+it there. If no, or there's no suite to add to, say so explicitly in the
+report — don't let a confirmed defect end up with no path back to
+verifying it stays fixed.
 
 ## Phase 7 — Report
 
@@ -409,3 +473,12 @@ to learn whether anything critical was found.
       not a described-but-not-saved artifact passed off as one.
 - [ ] Every confirmed/filed defect is formatted as a ticket (TEST SET ID/
       TEST CASE ID/Title/Steps/Actual/Expected/Ekler), not plain prose.
+- [ ] Every screen got an accessibility pass.
+- [ ] DB-level verification used where a connection was already
+      available, not just API/UI re-fetch.
+- [ ] Multi-language apps got i18n checks; single-language apps correctly
+      skipped them.
+- [ ] Observational security hygiene applied to normal traffic — no
+      attack payloads, no exploitation attempts.
+- [ ] Every CONFIRMED DEFECT got a regression-lock-in offer, and the
+      outcome is in the report.

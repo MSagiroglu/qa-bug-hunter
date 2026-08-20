@@ -11,7 +11,11 @@ undocumented, not wrong.
 2. **Existing requirements/documentation.**
 3. **Backend/API contract** (schema validation, documented request/response
    shape).
-4. **Database constraints** (column type, nullable, unique, FK) if visible.
+4. **Database constraints** (column type, nullable, unique, FK) if
+   visible, *and* — when a connection is already available
+   (`database-verification.md`) — the actual current row-level state,
+   read directly rather than inferred through an API/UI re-fetch that
+   could itself be wrong.
 5. **Source-code validation / business rules** (what the code actually
    enforces, even if undocumented).
 6. **Existing automated tests** — they encode a prior decision about

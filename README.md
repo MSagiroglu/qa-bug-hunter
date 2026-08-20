@@ -34,7 +34,9 @@ up on the happy path:
   persistence independently of what the screen claims, which this skill
   does for every write-capable feature (refresh mid-save, drop the
   connection mid-request, double-submit, throttle the connection — then
-  check what's actually in the database).
+  check what's actually in the database). When a database connection is
+  already available, it queries it directly instead of trusting an API
+  re-fetch that could share the same bug as the thing it's checking.
 - **Ripple-effect defects.** A shared/library record gets created,
   edited, deleted, or deactivated — does every other screen that consumes
   it reflect that correctly? This is the class of bug that only shows up
@@ -54,6 +56,17 @@ up on the happy path:
   too, though it shares Chromium's engine so it's checked for its own
   quirks, not counted as independent diversity) before being finalized.
   Runs headed when you're watching live, headless for unattended batches.
+- **Accessibility gaps** — missing alt text, unlabeled form inputs,
+  keyboard traps, broken focus management in modals. Found by accident
+  once (see below) and now checked on purpose, once per screen.
+- **i18n/localization defects** in multi-language apps — text overflow in
+  longer translations, locale-wrong date/number/currency formatting,
+  half-done RTL layouts, pluralization edge cases.
+- **Observational security hygiene issues** — API responses exposing
+  fields a role shouldn't see, error responses leaking stack traces, a
+  missing HTTP→HTTPS redirect. Passive only: this reads traffic the run
+  already produces, it never crafts attack input — that's a different,
+  separately-authorized kind of engagement, not this skill.
 
 ## What it produces
 
@@ -83,6 +96,11 @@ source-code business rule beats "consistent with the rest of the app"
 beats a QA guess), and anything below a confident oracle gets filed as
 "Behavior Requiring Clarification," not asserted as a defect.
 
+For every confirmed defect, it also asks whether to lock it in as a
+permanent regression test in your existing suite — finding a bug once and
+writing it up is half the job; making sure it can't come back silently is
+the other half.
+
 ## What it needs from you
 
 As little as possible. It works with:
@@ -107,56 +125,21 @@ execution path for the target platform, it's required to say so
 explicitly rather than quietly downgrading to a source-only pass without
 flagging it as incomplete.
 
-## What I'd add next
+## Recently added
 
-This is a working system, not a finished one. If I were running this as
-an actual QA practice instead of a weekend build, these are the gaps I'd
-close next — in the order I'd close them:
+A previous version of this README carried a "what I'd add next" wishlist
+of five gaps found by reviewing the skill the way a senior QA/dev hybrid
+would. All five are now built: accessibility checks (prompted by a real
+find — the dogfooding run's five broken images all had `alt=""`, and
+nothing was checking for that on purpose), a database-level verification
+tier for persistence claims stronger than an API re-fetch, i18n/
+localization checks, observational (non-pentest) security hygiene, and a
+rule to offer permanent regression coverage for every confirmed defect
+instead of just reporting it once.
 
-1. **Accessibility (a11y) checks.** There's currently no WCAG pass at
-   all — no alt-text check, no keyboard-only navigation walk, no focus-
-   trap detection in modals, no contrast-ratio check. This isn't
-   hypothetical: the dogfooding run against a live public site (see the
-   frontend-only-validation example above) turned up broken images with
-   empty `alt=""` on every one of them — exactly the kind of thing an
-   a11y pass catches automatically and this skill currently just walks
-   past. Wiring in something like axe-core wherever Playwright/Cypress is
-   already driving the browser is a small addition for a real gap.
-2. **A database-level verification tier.** Ghost-success checking
-   (`critical-defect-patterns.md`) currently confirms persistence by
-   re-fetching through the UI/API. That's good, but it's not the
-   strongest possible evidence — if the API layer itself has a caching
-   bug, a re-fetch can agree with a wrong UI state and both be wrong
-   together. When a test/staging database connection is actually
-   available, querying it directly is stronger evidence than going back
-   through the same API that might be the thing lying. Right now nothing
-   in this skill reaches for that even when it's sitting right there.
-3. **Close the loop: offer to lock a confirmed defect in as a regression
-   test.** Finding a bug once is half the job — a senior QA instinct is
-   to make sure it can't come back silently. This session's own
-   dogfooding run did exactly this by hand (wrote a permanent Playwright
-   spec for a confirmed finding), but the skill doesn't say to do that
-   anywhere — it's not a rule yet, just something that happened to happen
-   once.
-4. **i18n/localization checks.** The real app this was dogfooded against
-   ships 15+ language files. Nothing here checks for text overflow in
-   longer translations, locale-correct date/number formatting, or RTL
-   layout on the web side (mobile's exploratory-considerations file
-   mentions RTL in passing; web has nothing).
-5. **Observational security hygiene — not penetration testing.** Staying
-   well inside QA territory (no exploitation, no authorization needed
-   beyond what testing the app already implies): does an API response
-   include fields the current role shouldn't see at all (not a UI-hiding
-   problem, a response-body problem), do error messages leak stack
-   traces or internal paths, does the app actually enforce HTTPS
-   (this session's own dogfooding run happened to hit a correct
-   http→https redirect — worth checking for the *failure* case too,
-   which is easy to miss when the one example you saw worked).
-
-None of these are built yet. If you want one of them, that's a smaller,
-well-scoped addition on top of what's already here — the architecture
-(one reference file per concern, wired into the existing seven phases)
-is built to take exactly this kind of extension.
+No specific gap is queued right now. The architecture (one reference
+file per concern, wired into the existing seven phases) is built to take
+the next one whenever it turns up — issues and PRs welcome.
 
 ## Files
 
@@ -179,6 +162,18 @@ is built to take exactly this kind of extension.
   biometrics, device fragmentation).
 - `references/critical-defect-patterns.md` — ghost-success/persistence
   verification and the interrupted-write scenarios to run it against.
+- `references/database-verification.md` — using a database connection
+  (when one's already available) as a stronger persistence oracle than
+  an API/UI re-fetch — read-only, always.
+- `references/accessibility-checks.md` — the a11y pass run once per
+  screen: alt text, labels, keyboard reachability, focus management,
+  heading hierarchy, contrast.
+- `references/i18n-checks.md` — text-overflow, locale-formatting, RTL,
+  and pluralization checks for multi-language apps.
+- `references/security-hygiene.md` — observational (non-pentest)
+  security checks: response overexposure, error-message leakage,
+  transport/cookie basics. Explicitly scoped away from anything
+  resembling penetration testing.
 - `references/oracle-hierarchy.md` — how to decide what "correct
   behavior" means when there's no spec.
 - `references/defect-classification.md` — taxonomy, severity rubric,

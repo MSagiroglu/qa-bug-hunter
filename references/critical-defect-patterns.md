@@ -12,7 +12,11 @@ believes the write succeeded. They are not evidence the write actually
 persisted. For any write operation you test, verify the outcome from a
 source independent of the UI feedback that triggered it — reload the page/
 screen from scratch and re-fetch, call the read API directly, or check the
-list/detail view the record should now appear in. Treat "UI said success"
+list/detail view the record should now appear in. If a database
+connection is already available, prefer querying it directly over an
+API/UI re-fetch — see `database-verification.md`: it's stronger evidence
+because it doesn't share a code path with the thing that might be lying
+(an API-layer cache, a read-replica lag). Treat "UI said success"
 and "data actually persisted" as two separate facts to confirm, not one.
 
 This produces a 2×2 you should have an answer for on every write scenario

@@ -90,6 +90,17 @@ record) rather than a leaf feature nothing else depends on. If shared,
 also read `references/impact-analysis.md` — this triggers automatically,
 it's part of the same discovery pass, not a separate ask.
 
+**Database access:** if a database connection is already available (a
+connection string in the target's own config for a test/staging
+environment, credentials the user has explicitly provided) — not
+something you go set up — read `references/database-verification.md` and
+use it as the strongest available persistence oracle for the rest of this
+run. Read-only, always; see that file for why.
+
+**Multi-language apps:** if discovery finds the app supports more than
+one language/locale, also read `references/i18n-checks.md`. Skip it for
+single-language apps — don't force this check where it can't apply.
+
 Do not generate test scenarios before discovery is done. Guessing at
 constraints you haven't verified in source produces noise, not defects.
 
@@ -139,6 +150,19 @@ dependent layout.
 **Shared entities:** generate `impact-analysis.md`'s created/edited/
 deleted/deactivated × consumer-surface matrix as ordinary scenarios in
 this same list — they run through Phase 4 like everything else.
+
+**Every screen (once per screen, not per scenario):** run
+`references/accessibility-checks.md`'s page-level pass.
+
+**Multi-language apps:** include `references/i18n-checks.md`'s scenarios
+(text overflow in translation, locale-correct formatting, RTL,
+pluralization).
+
+**Every feature (observational, not a separate testing pass):** apply
+`references/security-hygiene.md` to whatever traffic/responses this run
+already produces — response overexposure, error message hygiene,
+transport/cookie basics. Passive observation only, never craft attack
+input — see that file's scope note before using it.
 
 ## Phase 4 — Execution loop
 
@@ -214,6 +238,16 @@ confirmed defect. If no confident oracle can be established, classify as
 "Potential Defect / Behavior Requiring Clarification" — never assert it as
 confirmed.
 
+**Regression lock-in:** finding a defect once is half the job. For every
+CONFIRMED DEFECT, if there's an execution tool and existing test suite to
+add to (Phase 1 already found this), ask the user whether to add a
+permanent regression test for it now, following the target's existing
+test conventions and naming (the same execution-detail companion skill/
+convention Phase 1 uses for mechanics). If they say yes, write it there.
+If they say no, or there's no suite to add to, note that explicitly in
+the report — don't let a confirmed defect silently have no path back to
+verifying it stays fixed.
+
 ## Phase 7 — Report
 
 Write the report using `references/report-template.md`. Every CONFIRMED
@@ -267,4 +301,15 @@ exploratory pass on the wrong feature wastes the whole pipeline.
 - [ ] Every evidence reference in a ticket points to a file that was
       actually written (`references/evidence-capture.md`), not a
       described-but-not-saved artifact passed off as one.
+- [ ] Every screen got an accessibility pass
+      (`references/accessibility-checks.md`).
+- [ ] DB-level verification was used where a connection was already
+      available, not just API/UI re-fetch (`references/database-verification.md`).
+- [ ] Multi-language apps got i18n checks (`references/i18n-checks.md`);
+      single-language apps correctly skipped them.
+- [ ] Observational security hygiene applied to normal traffic
+      (`references/security-hygiene.md`) — no attack payloads, no
+      exploitation attempts.
+- [ ] Every CONFIRMED DEFECT got a regression-lock-in offer, and the
+      outcome (added / declined / no suite to add to) is in the report.
 - [ ] Report written to `docs/qa-reports/` and summarized in-conversation.
