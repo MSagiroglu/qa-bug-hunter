@@ -138,8 +138,8 @@ flagging it as incomplete.
 ## Install
 
 ```bash
-git clone https://github.com/<your-username>/Sn-QA-Bug-Hunter.git
-cd Sn-QA-Bug-Hunter
+git clone https://github.com/MSagiroglu/qa-bug-hunter.git
+cd qa-bug-hunter
 ```
 
 Put it wherever you keep tools you don't want tied to one project — it's
