@@ -135,43 +135,87 @@ flagging it as incomplete.
   external references — paste it as a system/custom instruction into any
   AI tool that can't read local files.
 
-## Using this in Claude Code
+## Install
 
-Claude Code loads skills from `~/.claude/skills/<name>/SKILL.md`. Clone
-this repo somewhere stable, then point Claude Code at it with a directory
-junction so it reads straight from the repo (one source of truth, no copy
-to keep in sync):
-
-```powershell
-mklink /J "%USERPROFILE%\.claude\skills\senior-qa-explorer" "<path-to-this-repo>"
+```bash
+git clone https://github.com/<your-username>/Sn-QA-Bug-Hunter.git
+cd Sn-QA-Bug-Hunter
 ```
 
-Invoke with natural language ("test the Create Goal modal for bugs") or
-`/qa-explore <module>`.
+Put it wherever you keep tools you don't want tied to one project — it's
+not meant to live inside a project repo.
+
+## Using this in Claude Code
+
+Claude Code loads skills from `~/.claude/skills/<name>/SKILL.md`. Link
+this cloned repo there so Claude Code reads straight from it — one source
+of truth, `git pull` updates it everywhere, no copy to keep in sync.
+
+**Windows (PowerShell, run as the same user):**
+```powershell
+mklink /J "%USERPROFILE%\.claude\skills\senior-qa-explorer" "<path-to-cloned-repo>"
+```
+
+**macOS / Linux:**
+```bash
+ln -s "<path-to-cloned-repo>" "$HOME/.claude/skills/senior-qa-explorer"
+```
+
+**No symlink support / don't want one:** just copy the folder to
+`~/.claude/skills/senior-qa-explorer` instead — it'll work, you'll just
+need to re-copy after pulling updates.
+
+Restart Claude Code (or start a new session) so it picks up the new
+skill. Invoke with natural language ("test the Create Goal modal for
+bugs") or `/qa-explore <module>`.
 
 ## Using this in other AI coding tools
 
 Most agentic coding tools (Cursor, Codex CLI, Windsurf, Gemini CLI) read a
-convention file from the *target* repo you're working in, not a global
-skills folder. Drop a short pointer file into each project where you want
-this available — a couple of sentences saying "for exploratory/bug-
-hunting test requests, read and follow `SKILL.md` at `<path-to-this-
-repo>`, then use this repo's own conventions for how to write/run tests
-once you know what to test":
+convention file from the *target project* you're working in, not a
+global skills folder — so for these, add a short pointer file to each
+project where you want this available, pointing at wherever you cloned
+this repo. Replace `<path-to-cloned-repo>` with the real path.
 
-- `AGENTS.md` (Codex CLI, Windsurf, and others converging on this
-  standard)
-- `GEMINI.md` (Gemini CLI)
-- `.cursor/rules/qa-explorer.mdc` (Cursor, `alwaysApply: false`)
+**`AGENTS.md`** (repo root — Codex CLI, Windsurf, and others converging
+on this standard):
+```markdown
+## Exploratory QA testing
+
+For exploratory / bug-hunting test requests on this repo, read and follow:
+
+    <path-to-cloned-repo>/SKILL.md
+
+It's stack-agnostic and lives outside this repo — read it from that path,
+don't assume its content. For *how* to write/run tests in this repo once
+you know what to test, use this repo's own existing conventions/docs.
+```
+
+**`GEMINI.md`** (repo root — Gemini CLI): same content as `AGENTS.md`
+above.
+
+**`.cursor/rules/qa-explorer.mdc`** (Cursor):
+```markdown
+---
+description: Senior QA exploratory/bug-hunting testing methodology — apply when asked to test a module for bugs or find defects
+globs:
+alwaysApply: false
+---
+
+For exploratory / bug-hunting test requests on this repo, read and follow:
+
+    <path-to-cloned-repo>/SKILL.md
+```
 
 For tools with no file-convention support at all (a plain chat UI), paste
 `PORTABLE.md` as a custom instruction — it's self-contained.
 
 ## Updating
 
-Edit files directly in this repo and commit. Claude Code picks up changes
-immediately if you're using the junction. Other tools' pointer files
-don't need to change unless this repo's path changes.
+`git pull` in your clone. If you linked (junction/symlink), that's it —
+every tool reading through the link sees the update immediately. If you
+copied the folder instead, re-copy it. Pointer files in other projects
+(`AGENTS.md`, etc.) don't need to change unless you move the clone.
 
 ## License
 
