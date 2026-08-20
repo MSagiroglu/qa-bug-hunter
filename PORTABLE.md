@@ -173,12 +173,19 @@ infrastructure to answer one hypothesis.
 ## Phase 5 — Evidence
 
 For suspicious/confirmed findings, capture: repro steps, exact input
-values, expected vs. actual, screenshot if available, **video/trace
-recording of the reproduction if your execution tool supports it** (check
+values, expected vs. actual, screenshot if available, video/trace
+recording of the reproduction if your execution tool supports it (check
 during discovery whether it's enabled — e.g. Playwright's `video`/`trace`
-options; if it's off, note that as a testing-infrastructure gap rather than
-silently only giving a screenshot), console errors, actual network
-request/response (status + payload), and the responsible source file/line.
+options), console errors, actual network request/response (status +
+payload), and the responsible source file/line.
+
+If video/trace is supported but disabled, ask the user about it as soon as
+you notice during discovery — before running scenarios, not as a footnote
+at the end. Tell them what's off and the cost of turning it on
+(slower/heavier runs, more disk use), let them decide for this run. If they
+say yes, enable it yourself before proceeding. Either way, still note the
+gap in the report's Environment/Automation Issues section — asking comes
+first, but doesn't replace flagging it.
 
 ## Phase 6 — Oracle & classification
 

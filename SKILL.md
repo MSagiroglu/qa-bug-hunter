@@ -149,11 +149,20 @@ relevant: repro steps, exact input values, expected vs. actual result,
 screenshot, **video or trace recording of the reproduction if the execution
 tool supports it** (check during Phase 1 whether video/trace capture is
 enabled in the target's test config — e.g. Playwright's `use.video`/
-`use.trace`; if it's off, note that as a testing-infrastructure gap in the
-report instead of silently only providing a screenshot), console errors,
-the actual network request/response (status, payload), and the source
-file/line responsible. Never report a defect from an assertion failure
-alone — Phase 4's investigation step is mandatory first.
+`use.trace`), console errors, the actual network request/response (status,
+payload), and the source file/line responsible. Never report a defect from
+an assertion failure alone — Phase 4's investigation step is mandatory
+first.
+
+**If video/trace capture is supported by the execution tool but currently
+disabled**, ask the user about it as soon as you find that out in Phase 1
+— before running scenarios, not as a footnote in the final report. Tell
+them what's off, what enabling it would cost (slower/heavier test runs,
+extra disk use), and let them decide whether to enable it for this run. If
+they say yes, enable it in the config yourself before proceeding. If they
+say no or don't respond in time, proceed without it and still note the gap
+in the report's Environment/Automation Issues section — asking doesn't
+replace flagging, it comes first.
 
 ## Phase 6 — Defect classification
 
