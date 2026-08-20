@@ -22,11 +22,12 @@ Oracles used: <which levels from oracle-hierarchy.md were available>
 | 2 | ... | Error guessing | CONFIRMED DEFECT #1 |
 
 ## 3. Confirmed Defects
-(one block per defect, using the required fields from
-defect-classification.md)
+(one ticket per defect, formatted per jira-ticket-template.md — TEST SET
+ID/TEST CASE ID, Title, 📋 Steps to Reproduce, 🖼️ Actual Result,
+🎯 Expected Result)
 
 ## 4. Potential Defects
-(same fields, lower confidence, state why)
+(same ticket format, lower confidence, state why)
 
 ## 5. Behaviors Requiring Clarification
 (what's ambiguous and what oracle would resolve it)

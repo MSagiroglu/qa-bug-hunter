@@ -53,6 +53,9 @@ without flagging it.
 - `references/critical-defect-patterns.md` — ghost-success/persistence
   verification and the interrupted-write scenarios to run it against.
 - `references/report-template.md` — the QA report structure.
+- `references/jira-ticket-template.md` — per-defect ticket format (TEST SET
+  ID/TEST CASE ID/Title/Steps to Reproduce/Actual/Expected Result),
+  paste-ready for Jira or any tracker.
 - `PORTABLE.md` — the same methodology, self-contained (no file
   references), for tools that can't read local files — paste it as a
   system/custom instruction.

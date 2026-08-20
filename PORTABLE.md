@@ -232,15 +232,53 @@ Date: YYYY-MM-DD | Scope: ... | Oracles used: ...
 
 ## 1. Coverage Summary
 ## 2. Scenarios Executed (table: # | hypothesis | technique | result)
-## 3. Confirmed Defects (full required fields, one block each)
-## 4. Potential Defects
+## 3. Confirmed Defects (one ticket per defect, format below)
+## 4. Potential Defects (same ticket format, lower confidence)
 ## 5. Behaviors Requiring Clarification
 ## 6. Environment / Automation Issues
 ## 7. Risk Assessment (what's still untested and why it matters)
 ## 8. Recommended Additional Tests
 ```
 
-If your environment supports writing files, save this to
+**Per-defect ticket format (use this instead of prose, every time, not
+only when asked):**
+
+```markdown
+TEST SET ID: TS_<module-or-area>_<seq>
+TEST CASE ID: TC_<module-or-area>_<seq>
+Title: <one-line, states the defective behavior, not just the feature name>
+
+📋 Steps to Reproduce
+
+1. ...
+
+🖼️ Actual Result
+
+* ...
+
+🎯 Expected Result
+
+* ...
+```
+
+Match the target repo's existing test-ID convention for TEST SET/CASE ID
+if one exists; otherwise use `TS_<MODULE_SLUG>_<seq>`. Steps to Reproduce
+should be numbered and precise, and include the verification steps that
+actually surfaced the defect (Network/Console checks, cross-account
+comparisons), not just the click path to get there. Actual Result is a
+bullet list of observed facts — keep any root-cause hypothesis as its own
+bullet, phrased as an assessment, not asserted as confirmed unless you
+verified it in source. Expected Result is a bullet list grounded in the
+oracle you used; if the root cause is a frontend-only constraint or
+authorization gap, Expected Result must explicitly require backend/API-
+level enforcement, not just hiding the control in the UI — a frontend-only
+fix would just reproduce the same bug class one layer down.
+
+No ticket-tracker integration is assumed — produce this text ready to
+paste. If your environment can create the ticket directly, ask the user
+whether to file it there or just hand them the text.
+
+If your environment supports writing files, save the report to
 `docs/qa-reports/YYYY-MM-DD-<module>.md` in the target repo. Always also
 give a short summary in your response — don't make the reader open a file
 to learn whether anything critical was found.
@@ -259,3 +297,5 @@ to learn whether anything critical was found.
       UI's own success signal.
 - [ ] Execution-path gaps (no reachable simulator/emulator, video/trace
       disabled, etc.) are stated explicitly, not silently absorbed.
+- [ ] Every confirmed/filed defect is formatted as a ticket (TEST SET ID/
+      TEST CASE ID/Title/Steps/Actual/Expected), not plain prose.

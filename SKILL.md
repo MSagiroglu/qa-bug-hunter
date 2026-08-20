@@ -175,11 +175,16 @@ confirmed.
 
 ## Phase 7 — Report
 
-Write the report using `references/report-template.md`. Save it to the
-target repo at `docs/qa-reports/YYYY-MM-DD-<module>.md` so it's
-git-trackable and linkable from a PR. Also give a short summary in your
-response — don't make the user open the file to learn whether anything
-critical was found.
+Write the report using `references/report-template.md`. Every CONFIRMED
+DEFECT (and any POTENTIAL DEFECT worth filing early) gets formatted as a
+paste-ready ticket per `references/jira-ticket-template.md` — TEST SET ID/
+TEST CASE ID, Title, 📋 Steps to Reproduce, 🖼️ Actual Result,
+🎯 Expected Result — not a plain prose paragraph. This is the standard
+per-defect output format; use it every time, not only when asked. Save the
+report to the target repo at `docs/qa-reports/YYYY-MM-DD-<module>.md` so
+it's git-trackable and linkable from a PR. Also give a short summary in
+your response — don't make the user open the file to learn whether
+anything critical was found.
 
 ## Invocation
 
@@ -201,6 +206,8 @@ exploratory pass on the wrong feature wastes the whole pipeline.
       investigated.
 - [ ] Every confirmed defect has the evidence fields
       `references/defect-classification.md` requires.
+- [ ] Every confirmed/filed defect is formatted per
+      `references/jira-ticket-template.md`, not plain prose.
 - [ ] Oracle used is stated for each finding; low-confidence findings are
       labeled "Behavior Requiring Clarification," not asserted as bugs.
 - [ ] Every write-capable scenario checked persistence independently of the
