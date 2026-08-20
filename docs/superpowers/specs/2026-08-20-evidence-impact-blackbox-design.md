@@ -33,10 +33,14 @@ detail as if reviewing it as a senior QA/dev hybrid:
 - No Jira API/ticket-tracker integration — no MCP for it exists in this
   environment. Evidence files are produced and referenced by path; a human
   still attaches them to the actual tracker issue.
-- No mobile black-box mode (accessibility-tree-driven exploration without
-  app source) in this pass — noted as a known gap, not built now. Mobile
-  already has its own source-aware discovery (`mobile-discovery.md`);
-  black-box mobile is future work if it turns out to be needed.
+- No mobile black-box *consumer-mapping/discovery* (accessibility-tree-
+  driven exploration of an already-running app to find ripple-effect
+  consumers, mirroring web's DOM-based approach in section C) in this
+  pass — still a known gap. This is separate from section D's
+  self-provisioned Appium bootstrap, which *is* in scope: D covers
+  driving actions against a mobile target with no source access; the
+  excluded piece is specifically the "explore an unfamiliar mobile app's
+  screens to map consumers" methodology.
 - No automatic video capture turned on anywhere by default — Phase 5's
   existing "ask before enabling" rule (from the previous round) still
   governs whether video/trace gets turned on; this design only adds
@@ -143,20 +147,62 @@ DOM/accessibility-tree tool and network inspector instead of grep:
 
 Web only in this pass (per Non-goals).
 
+## D — Self-provisioned execution tooling (revision, folded into `references/blackbox-discovery.md`)
+
+Raised after initial approval: "no source-code access" should not mean
+"no automated actions." A user may hand over nothing but a URL and
+credentials ("go here, do this, find bugs") with no repo at all — the
+original Phase 1 rule ("don't scaffold a framework for one question")
+was written for a single quick hypothesis check, not this — the primary
+engagement shape this skill exists for.
+
+**Revised rule:** distinguish the two cases explicitly.
+
+- **Single, narrow hypothesis check** (repo exists, this is one specific
+  question) — unchanged: use the interactive/manual path, don't scaffold
+  anything.
+- **A full testing engagement with no reachable execution tooling at
+  all** (no repo, or a repo with no test framework) — the skill
+  provisions a minimal, throwaway automation project itself:
+  **Playwright** for web (matches everything else already used, zero
+  target-app integration needed — it drives any URL), **Appium** for
+  mobile (chosen specifically because, unlike Detox/Espresso/XCUITest, it
+  needs no build-time instrumentation of the target app — it drives a
+  running app/APK/IPA over the standard WebDriver protocol, which fits
+  "no source access" exactly). This becomes the execution tool the rest
+  of the pipeline (Phase 4 onward) reuses for that session.
+
+**Where it's provisioned:** a scratch/temporary location, never the
+target repo (there may not even be a target repo, and this skill doesn't
+commit new infrastructure into a project without being asked). Confirmed
+with the user: scratch folder, not repo-committed, discarded/left as a
+session artifact rather than becoming permanent project infrastructure.
+
+**Capability-boundaries text update:** the existing honesty rule ("if no
+reachable execution path exists, say so explicitly") now becomes "if no
+reachable execution path exists, *try to provision a minimal one first*
+(per the rule above); only fall back to a code-review/manual-only pass
+and flag it as incomplete if provisioning itself isn't possible (e.g. no
+package-manager access in this environment, or the target genuinely
+can't be reached from here)."
+
 ## File changes
 
 - New: `references/evidence-capture.md`, `references/impact-analysis.md`,
-  `references/blackbox-discovery.md`.
+  `references/blackbox-discovery.md` (now covers both DOM/network-based
+  discovery *and* the self-provisioned-tooling rule from section D).
 - `SKILL.md`: Phase 1 branches to blackbox-discovery.md when no repo;
   Phase 1/2/3 note the shared-entity consumer-mapping trigger; Phase 5
-  points to evidence-capture.md for real file output.
+  points to evidence-capture.md for real file output; Capability
+  Boundaries section updated per D.
 - `PORTABLE.md`: condensed self-contained versions of all three additions
   (it must stay a single paste-able file).
 - `references/defect-classification.md`: evidence field says "actual
   file per evidence-capture.md," not "description."
 - `references/jira-ticket-template.md`: add an Ekler/Attachments section
   listing evidence file paths.
-- `README.md`: mention the three capabilities.
+- `README.md`: mention the three capabilities, including the
+  self-provisioned-tooling case.
 
 ## Risks / limitations
 
