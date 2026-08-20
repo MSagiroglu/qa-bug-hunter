@@ -1,74 +1,149 @@
 # Sn-QA-Bug-Hunter (senior-qa-explorer)
 
-Systematic exploratory QA testing methodology for AI coding agents — web
-and mobile. Given "test module X for bugs," it drives discovery → ISTQB-
-based test design → hypothesis-driven execution → evidence collection →
-defect classification → report, instead of just confirming the happy path
+A skill for AI coding agents that turns "test module X" into what a
+senior QA engineer would actually do: find out where it breaks, prove it,
+and hand you a ticket you can file — not just confirm the happy path
 works.
 
-This repo *is* the skill package. It's stack-agnostic: it never assumes
-Playwright, React, or any specific framework — every run starts by
-detecting what the target repo actually uses.
+Most agents, told to test something, click through it once and say "looks
+good." This skill exists to not stop there. Point it at a feature — a
+form, a modal, a whole module, a live URL — and it runs a systematic
+pipeline: read the code (or observe the running app if there's no code),
+design test scenarios the way ISTQB test-design techniques would, execute
+each one as a hypothesis to disprove, collect real evidence when
+something looks wrong, and write up every confirmed defect as a
+paste-ready ticket with the files to attach already sitting next to it.
 
-## What's in a finding
+## What it actually finds
 
-Every reported defect ships with evidence, not just a description:
-reproduction steps, exact input values, the source file/line responsible,
-screenshot, and — when the execution tool supports it (e.g. Playwright's
-video/trace) — a video or trace of the reproduction. It also runs an
-explicit "never trust the UI's success toast" check on every write-capable
-feature: refresh mid-save, drop the connection mid-request, double-submit,
-throttle the connection — then verify what actually persisted, independent
-of what the screen claimed. See `references/critical-defect-patterns.md`.
+Not "the button is misaligned." The classes of bug this is built to catch
+are the ones that survive normal manual testing because they don't show
+up on the happy path:
+
+- **Frontend-only validation gaps.** A rule the UI enforces that the
+  backend never checks — meaning anyone bypassing the UI (a direct API
+  call, a different client) can violate it. In one real run against a
+  production SaaS app's goal-tracking feature, this skill traced a
+  boundary-value rule through the frontend source, found the backend
+  endpoint had zero corresponding server-side check, and flagged it
+  before writing a single line of test code — because it read where the
+  constraint actually lived, not just whether the form looked right.
+- **Ghost successes.** The UI shows a success toast, but the write never
+  actually persisted — or the reverse: it shows an error, but the data
+  went in anyway. Neither is visible unless you deliberately verify
+  persistence independently of what the screen claims, which this skill
+  does for every write-capable feature (refresh mid-save, drop the
+  connection mid-request, double-submit, throttle the connection — then
+  check what's actually in the database).
+- **Ripple-effect defects.** A shared/library record gets created,
+  edited, deleted, or deactivated — does every other screen that consumes
+  it reflect that correctly? This is the class of bug that only shows up
+  when you think past the screen you're looking at.
+- **Boundary, equivalence-partition, and negative-input defects** the
+  standard way — but only where the actual constraint (type, min/max,
+  regex, business rule) was found in source or observed live, never
+  guessed.
+- **Mobile-specific classes**: state lost on backgrounding, permission
+  states other than the one path someone tested, deep links opened into
+  the wrong app state, connectivity loss mid-write.
+- **Responsive/layout defects** at mobile/tablet/desktop widths nobody
+  manually resizes a window to check.
+
+## What it produces
+
+A markdown report per run (coverage summary, what was tested, what
+passed) plus one ticket per confirmed defect in this format:
+
+```
+TEST SET ID / TEST CASE ID
+Title
+📋 Steps to Reproduce
+🖼️ Actual Result
+🎯 Expected Result
+📎 Ekler / Attachments
+```
+
+Steps to Reproduce include the verification steps that actually surfaced
+the bug (Network tab checks, console errors, cross-account comparisons),
+not just the click path. Actual/Expected separate observed fact from
+root-cause assessment. Ekler/Attachments lists real files — screenshots,
+saved network request/response JSON, console logs, video/trace when
+enabled — written to `docs/qa-reports/evidence/<date>-<module>/`, ready
+to drag into Jira or any tracker (no ticket-tracker API is assumed).
+
+It never rounds a maybe up to a confirmed bug: every finding states which
+oracle it's based on (an explicit spec beats a backend contract beats a
+source-code business rule beats "consistent with the rest of the app"
+beats a QA guess), and anything below a confident oracle gets filed as
+"Behavior Requiring Clarification," not asserted as a defect.
+
+## What it needs from you
+
+As little as possible. It works with:
+
+- **A full source repo**, any stack — it detects what's there (Playwright/
+  Cypress/Jest for web; Detox/Appium/Maestro/Patrol/XCUITest/Espresso for
+  mobile) and reuses it.
+- **Just a URL and credentials**, no source at all — it reads the live
+  DOM and network traffic instead of code, and if there's no execution
+  tooling reachable, it provisions a minimal throwaway one itself
+  (Playwright for web, Appium for mobile) in a scratch location, never
+  touching your repo.
+- **Anything in between.**
 
 ## Honest scope — what this does *not* do
 
 This is a methodology an AI agent follows, not a device lab. It drives
-whatever test tooling is already configured and reachable: Playwright/
-Cypress for web, or Detox/Appium/Maestro/Patrol/XCUITest/Espresso for
-mobile — *if* that tooling exists in the target repo and there's a reachable
-simulator/emulator/device to run it against. It does not open a simulator
-or emulator by itself. If no reachable execution path exists, the skill is
-required to say so explicitly (in the report's Environment/Automation
-Issues section) instead of quietly downgrading to a source-only pass
-without flagging it.
+whatever tooling already exists or that it can provision — it does not
+open a physical device or a simulator/emulator that isn't already
+reachable from wherever it's running. If it can't reach a working
+execution path for the target platform, it's required to say so
+explicitly rather than quietly downgrading to a source-only pass without
+flagging it as incomplete.
 
 ## Files
 
-- `SKILL.md` — orchestration (the phases, in what order, what to read when).
+- `SKILL.md` — orchestration: the phases, in order, what to read when.
 - `references/discovery.md` — repo/stack discovery checklist (web).
-- `references/mobile-discovery.md` — same, for React Native/Flutter/native
-  iOS/Android.
+- `references/mobile-discovery.md` — same, for React Native/Flutter/
+  native iOS/Android.
+- `references/blackbox-discovery.md` — discovery without source access
+  (DOM/network observation), plus the rule for provisioning your own
+  minimal Playwright/Appium tooling when none exists.
+- `references/impact-analysis.md` — ripple-effect testing for shared/
+  library entities: consumer-surface discovery and the created/edited/
+  deleted/deactivated verification matrix.
 - `references/test-design-techniques.md` — ISTQB techniques and how to
-  prioritize scenarios.
-- `references/input-mutation-catalog.md` — mutation menu per semantic input
-  type (web forms).
+  prioritize scenarios by risk instead of maximizing count.
+- `references/input-mutation-catalog.md` — mutation menu per semantic
+  input type (web forms).
 - `references/mobile-exploratory-considerations.md` — mobile-specific
   error-guessing (lifecycle, connectivity, permissions, deep links,
   biometrics, device fragmentation).
-- `references/oracle-hierarchy.md` — how to decide what "correct behavior"
-  means when there's no spec.
-- `references/defect-classification.md` — taxonomy, severity rubric,
-  required evidence fields.
 - `references/critical-defect-patterns.md` — ghost-success/persistence
   verification and the interrupted-write scenarios to run it against.
-- `references/report-template.md` — the QA report structure.
-- `references/jira-ticket-template.md` — per-defect ticket format (TEST SET
-  ID/TEST CASE ID/Title/Steps to Reproduce/Actual/Expected Result),
-  paste-ready for Jira or any tracker.
-- `PORTABLE.md` — the same methodology, self-contained (no file
-  references), for tools that can't read local files — paste it as a
-  system/custom instruction.
+- `references/oracle-hierarchy.md` — how to decide what "correct
+  behavior" means when there's no spec.
+- `references/defect-classification.md` — taxonomy, severity rubric,
+  required evidence fields.
+- `references/evidence-capture.md` — how evidence actually gets written
+  to disk (not just described) for both scripted and interactive tools.
+- `references/jira-ticket-template.md` — the per-defect ticket format,
+  field-by-field rules, and a worked example.
+- `references/report-template.md` — the overall QA report structure.
+- `PORTABLE.md` — the entire methodology in one self-contained file, no
+  external references — paste it as a system/custom instruction into any
+  AI tool that can't read local files.
 
 ## Using this in Claude Code
 
-Claude Code loads skills from `~/.claude/skills/<name>/SKILL.md`. This repo
-is meant to sit at a stable path with a **directory junction** at
-`~/.claude/skills/senior-qa-explorer` pointing here, so Claude Code reads
-straight from this repo — one source of truth, no copy to keep in sync.
+Claude Code loads skills from `~/.claude/skills/<name>/SKILL.md`. Clone
+this repo somewhere stable, then point Claude Code at it with a directory
+junction so it reads straight from the repo (one source of truth, no copy
+to keep in sync):
 
 ```powershell
-mklink /J "%USERPROFILE%\.claude\skills\senior-qa-explorer" "C:\Users\musta\Desktop\Sn-QA-Bug-Hunter"
+mklink /J "%USERPROFILE%\.claude\skills\senior-qa-explorer" "<path-to-this-repo>"
 ```
 
 Invoke with natural language ("test the Create Goal modal for bugs") or
@@ -79,25 +154,25 @@ Invoke with natural language ("test the Create Goal modal for bugs") or
 Most agentic coding tools (Cursor, Codex CLI, Windsurf, Gemini CLI) read a
 convention file from the *target* repo you're working in, not a global
 skills folder. Drop a short pointer file into each project where you want
-this available:
+this available — a couple of sentences saying "for exploratory/bug-
+hunting test requests, read and follow `SKILL.md` at `<path-to-this-
+repo>`, then use this repo's own conventions for how to write/run tests
+once you know what to test":
 
-- `AGENTS.md` (Codex CLI, Windsurf, and others converging on this standard)
+- `AGENTS.md` (Codex CLI, Windsurf, and others converging on this
+  standard)
 - `GEMINI.md` (Gemini CLI)
 - `.cursor/rules/qa-explorer.mdc` (Cursor, `alwaysApply: false`)
 
-Each just needs a couple of sentences: for exploratory/bug-hunting test
-requests, read and follow `SKILL.md` at this repo's path (adjust for
-wherever you clone it), then use the target repo's own conventions for how
-to write/run tests once you know what to test. See
-an AGENTS.md in the target project for a
-working example of this pattern.
-
 For tools with no file-convention support at all (a plain chat UI), paste
-`PORTABLE.md` as a custom instruction.
+`PORTABLE.md` as a custom instruction — it's self-contained.
 
 ## Updating
 
 Edit files directly in this repo and commit. Claude Code picks up changes
-immediately (junction, not a copy). Other tools' pointer files don't need
-to change unless this repo's path changes — update the path in each
-pointer file if you move the repo.
+immediately if you're using the junction. Other tools' pointer files
+don't need to change unless this repo's path changes.
+
+## License
+
+MIT — see `LICENSE`. Use it, fork it, adapt it.

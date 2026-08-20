@@ -47,13 +47,21 @@ the current environment:
   control — it cannot open an iOS Simulator or Android Emulator on its own
   unless the host tool exposes that capability.
 
-If Phase 1 discovery finds no reachable execution path for the target
-platform, **say so explicitly** — in the response and in the report's
-Environment/Automation Issues section — rather than silently limiting
-yourself to a code-review-only pass without flagging that the pass was
-incomplete. "I traced this from source but could not execute against a
-running app/simulator" is a valid, honest outcome; claiming full coverage
-when you only read source is not.
+If Phase 1 discovery finds no reachable execution tooling at all — no
+repo, or a repo with no test framework, for a full testing engagement
+(not a single narrow check) — **try to provision a minimal one first**:
+see `references/blackbox-discovery.md`'s Self-Provisioned Execution
+Tooling section (Playwright for web, Appium for mobile, set up in a
+scratch location, never committed to the target repo without being
+asked). Only if provisioning itself isn't possible — no install access,
+target unreachable, no way to attach to a mobile app — fall back to
+whatever manual/interactive checking is still possible and **say so
+explicitly**, in the response and in the report's Environment/Automation
+Issues section, rather than silently limiting yourself to a code-review-
+only pass without flagging that the pass was incomplete. "I traced this
+from source but could not execute against a running app/simulator" is a
+valid, honest outcome; claiming full coverage when you only read source
+is not.
 
 ## Phase 1 — Discovery (always first, never skip)
 
@@ -63,13 +71,24 @@ existing test structure; tracing the feature's implementation (UI → frontend
 validation → API → backend validation → business logic → DB → response →
 UI state); and what to do when no test tooling exists yet.
 
-For Claude Code specifically, when the discovered repo is
-a Playwright hooks/page-object test repo (or any repo using the same
-hooks/page-object/ReusableMethods pattern), also load
-`~/.claude/skills/playwright/SKILL.md` for that repo's execution
-conventions — this skill governs *what* to test and *why*; that skill
-governs *how* to write/run the Playwright code once you've decided what to
-test.
+**No source access at all** (just a URL/credentials, or a repo you can't
+read the relevant parts of): read `references/blackbox-discovery.md`
+instead — it covers black-box feature tracing via DOM/network observation,
+and provisioning your own minimal Playwright/Appium tooling when nothing
+reachable exists yet.
+
+If a companion skill already exists in this environment specifically for
+*how* to write/run tests in the target repo's own framework and
+conventions (hooks, page objects, naming — the execution-detail layer,
+distinct from this skill's what-and-why), load and follow it for the
+mechanics once you've decided what to test.
+
+**Shared/library entities:** while identifying the target entity's
+backend representation, check whether it's referenced by other
+tables/services/frontend components (a library, config, or master-data
+record) rather than a leaf feature nothing else depends on. If shared,
+also read `references/impact-analysis.md` — this triggers automatically,
+it's part of the same discovery pass, not a separate ask.
 
 Do not generate test scenarios before discovery is done. Guessing at
 constraints you haven't verified in source produces noise, not defects.
@@ -86,6 +105,10 @@ between iOS and Android).
 From discovery, enumerate for the target feature: inputs and their
 semantic types, actions/buttons, states and transitions, dependencies
 between fields, and the API contract. This is the map Phase 3 works from.
+
+If Phase 1 found the entity is shared, also list every consumer surface
+`impact-analysis.md` found — each one is a model entry the same way an
+input field is.
 
 ## Phase 3 — Test design
 
@@ -112,6 +135,10 @@ a write as successful based on the UI's own success signal alone.
 **Web layout:** include the Responsive/Viewport Testing technique from
 `references/test-design-techniques.md` for any screen with viewport-
 dependent layout.
+
+**Shared entities:** generate `impact-analysis.md`'s created/edited/
+deleted/deactivated × consumer-surface matrix as ordinary scenarios in
+this same list — they run through Phase 4 like everything else.
 
 ## Phase 4 — Execution loop
 
@@ -144,15 +171,16 @@ a browser devtools check).
 
 ## Phase 5 — Evidence collection
 
-For every suspicious or confirmed finding, capture what's available and
-relevant: repro steps, exact input values, expected vs. actual result,
-screenshot, **video or trace recording of the reproduction if the execution
-tool supports it** (check during Phase 1 whether video/trace capture is
-enabled in the target's test config — e.g. Playwright's `use.video`/
-`use.trace`), console errors, the actual network request/response (status,
-payload), and the source file/line responsible. Never report a defect from
-an assertion failure alone — Phase 4's investigation step is mandatory
-first.
+For every suspicious or confirmed finding, produce actual evidence files
+per `references/evidence-capture.md` — not a description of what you saw,
+a saved screenshot/network dump/console log at a real path. Capture: repro
+steps, exact input values, expected vs. actual result, screenshot, **video
+or trace recording of the reproduction if the execution tool supports it**
+(check during Phase 1 whether video/trace capture is enabled in the
+target's test config — e.g. Playwright's `use.video`/`use.trace`), console
+errors, the actual network request/response (status, payload), and the
+source file/line responsible. Never report a defect from an assertion
+failure alone — Phase 4's investigation step is mandatory first.
 
 **If video/trace capture is supported by the execution tool but currently
 disabled**, ask the user about it as soon as you find that out in Phase 1
@@ -179,8 +207,10 @@ Write the report using `references/report-template.md`. Every CONFIRMED
 DEFECT (and any POTENTIAL DEFECT worth filing early) gets formatted as a
 paste-ready ticket per `references/jira-ticket-template.md` — TEST SET ID/
 TEST CASE ID, Title, 📋 Steps to Reproduce, 🖼️ Actual Result,
-🎯 Expected Result — not a plain prose paragraph. This is the standard
-per-defect output format; use it every time, not only when asked. Save the
+🎯 Expected Result, 📎 Ekler/Attachments — not a plain prose paragraph.
+This is the standard per-defect output format; use it every time, not
+only when asked. The Ekler section lists exactly the files Phase 5
+actually wrote — don't reference an evidence file that doesn't exist. Save the
 report to the target repo at `docs/qa-reports/YYYY-MM-DD-<module>.md` so
 it's git-trackable and linkable from a PR. Also give a short summary in
 your response — don't make the user open the file to learn whether
@@ -215,4 +245,13 @@ exploratory pass on the wrong feature wastes the whole pipeline.
 - [ ] Execution-path gaps (no reachable simulator/emulator, video/trace
       disabled, etc.) are stated explicitly, not silently absorbed into a
       quieter pass.
+- [ ] If no execution tooling existed at all, a minimal one was
+      provisioned before falling back to manual-only checking (or the
+      report says explicitly why that wasn't possible).
+- [ ] Shared/library entities got their consumer surfaces mapped and the
+      created/edited/deleted/deactivated matrix run
+      (`references/impact-analysis.md`), or the entity was confirmed leaf.
+- [ ] Every evidence reference in a ticket points to a file that was
+      actually written (`references/evidence-capture.md`), not a
+      described-but-not-saved artifact passed off as one.
 - [ ] Report written to `docs/qa-reports/` and summarized in-conversation.

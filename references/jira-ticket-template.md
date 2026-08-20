@@ -32,6 +32,10 @@ Title: <one-line, states the defective behavior, not just the feature name>
 🎯 Expected Result
 
 * ...
+
+📎 Ekler / Attachments
+
+* ...
 ```
 
 ## Field rules
@@ -83,6 +87,16 @@ not obvious. Two patterns worth calling out explicitly when they apply:
   found was exactly a frontend-only enforcement problem — that would just
   reproduce the same bug class one layer down.
 
+**Ekler / Attachments** — the manifest of what `evidence-capture.md`
+actually wrote for this finding: relative paths under
+`docs/qa-reports/evidence/<date>-<module>/` (e.g.
+`screenshot-1-blocked-toast.png`, `network-1-min-target.json`,
+`console-1-error.log`). No ticket-tracker API is assumed — this list is
+what the person filing the ticket manually attaches. Every path listed
+must correspond to a file that was actually saved; if a piece of evidence
+was only captured interactively and isn't a saved file, say that
+explicitly here instead of listing a path that doesn't exist.
+
 ## Worked example
 
 ```markdown
@@ -131,4 +145,10 @@ Title: Durum Raporlarında Admin Kullanıcının Mevcut Yorumları Görüntüley
 * Çalışan kullanıcı açısından mevcut çalışan bazlı yorum görüntüleme davranışı korunmalıdır.
 * Admin ve çalışan için uygulanacak erişim kontrolü backend seviyesinde de açık şekilde tanımlanmalı; yalnızca frontend'de alanın gizlenmesiyle yetinilmemelidir.
 * Yetki kontrolü nedeniyle veri getirilmiyorsa, hangi rolün hangi yorum verisine erişebileceği iş kuralı netleştirilmeli ve buna uygun API authorization uygulanmalıdır.
+
+📎 Ekler / Attachments
+
+* screenshot-1-admin-yorum-alani-bos.png
+* network-1-yorum-ekle-tiklandiginda-request-yok.json
+* console-1-hata-yok.log
 ```

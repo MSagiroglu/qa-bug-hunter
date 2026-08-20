@@ -22,10 +22,23 @@ whatever E2E tool discovery finds (or direct HTTP/manual browser if none);
 for mobile, whatever mobile E2E tool discovery finds already configured
 *and* actually runnable (a reachable simulator/emulator/device) — it
 cannot open a simulator or emulator on its own unless your host tool
-exposes that. If no reachable execution path exists for the target
-platform, say so explicitly in your response and in the report's
-Environment/Automation Issues section rather than silently doing a
-code-review-only pass without flagging it as incomplete.
+exposes that.
+
+If there's no reachable execution tooling at all for a *full testing
+engagement* (not a single narrow check) — no repo, or a repo with no test
+framework, possibly nothing but a URL and credentials — try to provision
+a minimal one yourself before falling back to manual checking: a bare
+**Playwright** project for web (no target-app integration needed, it
+drives any URL), or **Appium** for mobile (chosen over Detox/Espresso/
+XCUITest specifically because it needs no build-time instrumentation of
+the target app — it drives a running app/APK/IPA over WebDriver). Set
+this up in a scratch/temporary location, never the target repo, and treat
+it as a session artifact, not something to commit unless asked. Only if
+provisioning itself isn't possible (no install access, target
+unreachable, no way to attach to a mobile app) do you fall back to
+manual/interactive checking — and even then, say so explicitly in your
+response and in the report's Environment/Automation Issues section rather
+than silently doing a narrower pass without flagging it as incomplete.
 
 ## Phase 1 — Discovery (always first)
 
@@ -47,8 +60,27 @@ access you have:
   frontend-only constraint is a near-guaranteed finding once you bypass the
   UI.
 
-If no test tooling exists, don't scaffold a framework for one question —
-use a direct HTTP call or a single manual browser session, and say so.
+If no test tooling exists for a single narrow question, don't scaffold a
+framework — use a direct HTTP call or a single manual browser session,
+and say so. (For a full testing engagement with zero tooling, see
+Capability Boundaries above — that's when you provision your own.)
+
+**No source access at all** (just a URL/credentials, or parts of the repo
+you can't read): reconstruct the same picture by observation instead of
+code. Read the page via your host's DOM/accessibility-tree tool to
+enumerate inputs/actions/visible constraints; drive the feature while
+watching network traffic (request/response pairs are your API contract
+when you can't read its source — the frontend-only-constraint signal
+still applies, just detected by probing past a client-side block instead
+of reading two files side by side); read visible error/success messages
+as your only window into backend behavior on failure.
+
+**Shared/library entities:** while identifying the target entity's
+backend representation, check whether other tables/services/frontend
+components reference it (a library/config/master-data record) rather
+than it being a leaf feature nothing depends on. If shared, this
+triggers the impact-analysis section below automatically as part of this
+same discovery pass.
 
 Do not skip this phase. Every mutation you apply later must trace back to
 something found here.
@@ -73,7 +105,9 @@ request with the constraint violated.
 ## Phase 2 — Test model
 
 From discovery, list: inputs and types, actions, states/transitions, field
-dependencies, API contract.
+dependencies, API contract. If the entity is shared, also list every
+consumer surface found (below) — each is a model entry the same way an
+input field is.
 
 ## Phase 3 — Test design
 
@@ -153,6 +187,27 @@ backgrounded; small screens or max accessibility text-scaling breaking
 critical UI; fresh install vs. update-from-previous-version local-data
 migration.
 
+**Impact analysis (shared entities):** find consumer surfaces — with
+source: other DB tables with an FK into the entity's table, other API
+controllers/services querying it beyond its own CRUD endpoint, and every
+distinct frontend component calling whatever data-service method(s) fetch
+it (grep across the whole frontend, not just the feature you started in).
+Without source: perform the change on one screen, capture the resulting
+entity's id/name from that screen's own API response, then visit the
+app's other major sections (from its nav) watching network responses/
+rendered text for that same id/name — a hit is a consumer surface (this
+under-finds relative to source-based discovery; say so if used).
+
+For each consumer surface found, generate scenarios from this matrix as
+ordinary Phase 3 output (they run through Phase 4 like anything else):
+
+| Entity state | Expected in each consumer surface |
+|---|---|
+| Created | Appears where it should, without a manual refresh/cache-bust a real user wouldn't know to do |
+| Edited | Updated fields reflect everywhere displayed, not just the canonical screen (stale-copy bugs) |
+| Deleted | Removed from selectable/listing UI; existing records referencing it follow *some* defined rule (cascade / orphan-safe / delete-blocked) — verify it's the intended one |
+| Deactivated | Excluded from "available to add new" pickers, but records already created from it stay intact |
+
 ## Phase 4 — Execution loop
 
 Per scenario:
@@ -172,12 +227,28 @@ infrastructure to answer one hypothesis.
 
 ## Phase 5 — Evidence
 
-For suspicious/confirmed findings, capture: repro steps, exact input
-values, expected vs. actual, screenshot if available, video/trace
-recording of the reproduction if your execution tool supports it (check
-during discovery whether it's enabled — e.g. Playwright's `video`/`trace`
-options), console errors, actual network request/response (status +
-payload), and the responsible source file/line.
+Evidence is a real saved file, not a sentence describing one. Store
+under `docs/qa-reports/evidence/<date>-<module>/`:
+`screenshot-<n>-<label>.png`, `network-<n>-<label>.json` (request+response:
+method, URL, status, payloads), `console-<n>-<label>.log`, and
+`video-<n>-<label>.<ext>`/`trace-<n>.zip` only if enabled (see below).
+
+Two capture paths: **scripted** (preferred, whenever a test tool is
+driving) — use the tool's native screenshot-to-path call, and for
+network/console attach a listener and `fs.writeFileSync` the captured
+data to a file (logging to stdout only is not evidence capture — it's
+not a file anyone can attach to a ticket). **Interactive** (fallback, ad-
+hoc or black-box mode with no script to write capture code into) — use
+your host's screenshot/console/network inspection tool; if it can write
+bytes to disk, save into the evidence folder the same way; if it can't
+(view-only), don't invent a file path — say in the ticket that the
+artifact was captured interactively and isn't a saved file.
+
+For every suspicious/confirmed finding, produce: repro steps, exact input
+values, expected vs. actual, the screenshot file, video/trace file if
+your execution tool supports it and it's enabled (check during discovery
+— e.g. Playwright's `video`/`trace` options), the console-log file, the
+network request/response file, and the responsible source file/line.
 
 If video/trace is supported but disabled, ask the user about it as soon as
 you notice during discovery — before running scenarios, not as a footnote
@@ -259,6 +330,10 @@ Title: <one-line, states the defective behavior, not just the feature name>
 🎯 Expected Result
 
 * ...
+
+📎 Ekler / Attachments
+
+* ...
 ```
 
 Match the target repo's existing test-ID convention for TEST SET/CASE ID
@@ -272,7 +347,11 @@ verified it in source. Expected Result is a bullet list grounded in the
 oracle you used; if the root cause is a frontend-only constraint or
 authorization gap, Expected Result must explicitly require backend/API-
 level enforcement, not just hiding the control in the UI — a frontend-only
-fix would just reproduce the same bug class one layer down.
+fix would just reproduce the same bug class one layer down. Ekler/
+Attachments lists the real evidence file paths Phase 5 wrote (relative to
+`docs/qa-reports/evidence/<date>-<module>/`) — never list a path that
+doesn't correspond to an actual saved file; say so instead if something
+was only captured interactively.
 
 No ticket-tracker integration is assumed — produce this text ready to
 paste. If your environment can create the ticket directly, ask the user
@@ -297,5 +376,12 @@ to learn whether anything critical was found.
       UI's own success signal.
 - [ ] Execution-path gaps (no reachable simulator/emulator, video/trace
       disabled, etc.) are stated explicitly, not silently absorbed.
+- [ ] If no execution tooling existed at all, a minimal one was
+      provisioned before falling back to manual-only checking, or the
+      report says explicitly why that wasn't possible.
+- [ ] Shared/library entities got their consumer surfaces mapped and the
+      created/edited/deleted/deactivated matrix run, or were confirmed leaf.
+- [ ] Every evidence reference points to a file that was actually written,
+      not a described-but-not-saved artifact passed off as one.
 - [ ] Every confirmed/filed defect is formatted as a ticket (TEST SET ID/
-      TEST CASE ID/Title/Steps/Actual/Expected), not plain prose.
+      TEST CASE ID/Title/Steps/Actual/Expected/Ekler), not plain prose.

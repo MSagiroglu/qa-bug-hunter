@@ -40,11 +40,12 @@ Base severity on business impact, not on how surprising the behavior felt.
 - Test data used
 - Expected result + which oracle level it came from
 - Actual result
-- Evidence: screenshot, video or trace recording of the reproduction
-  sequence when the execution tool supports it (see `SKILL.md` Phase 5 for
-  what to do when it's supported but disabled — ask the user before
-  proceeding, don't just note it at the end), console errors, network
-  request/response (status + payload), relevant source file/line
+- Evidence: **actual saved files** per `evidence-capture.md` — screenshot,
+  video or trace recording when the execution tool supports it (see
+  `SKILL.md` Phase 5 for what to do when it's supported but disabled —
+  ask the user before proceeding, don't just note it at the end), console
+  errors, network request/response (status + payload), all as files at a
+  real path, not prose describing them — plus relevant source file/line
 - Root cause hypothesis (if investigation reached one)
 - Confidence (how sure are you this reproduces reliably)
 
