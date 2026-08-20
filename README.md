@@ -107,6 +107,57 @@ execution path for the target platform, it's required to say so
 explicitly rather than quietly downgrading to a source-only pass without
 flagging it as incomplete.
 
+## What I'd add next
+
+This is a working system, not a finished one. If I were running this as
+an actual QA practice instead of a weekend build, these are the gaps I'd
+close next — in the order I'd close them:
+
+1. **Accessibility (a11y) checks.** There's currently no WCAG pass at
+   all — no alt-text check, no keyboard-only navigation walk, no focus-
+   trap detection in modals, no contrast-ratio check. This isn't
+   hypothetical: the dogfooding run against a live public site (see the
+   frontend-only-validation example above) turned up broken images with
+   empty `alt=""` on every one of them — exactly the kind of thing an
+   a11y pass catches automatically and this skill currently just walks
+   past. Wiring in something like axe-core wherever Playwright/Cypress is
+   already driving the browser is a small addition for a real gap.
+2. **A database-level verification tier.** Ghost-success checking
+   (`critical-defect-patterns.md`) currently confirms persistence by
+   re-fetching through the UI/API. That's good, but it's not the
+   strongest possible evidence — if the API layer itself has a caching
+   bug, a re-fetch can agree with a wrong UI state and both be wrong
+   together. When a test/staging database connection is actually
+   available, querying it directly is stronger evidence than going back
+   through the same API that might be the thing lying. Right now nothing
+   in this skill reaches for that even when it's sitting right there.
+3. **Close the loop: offer to lock a confirmed defect in as a regression
+   test.** Finding a bug once is half the job — a senior QA instinct is
+   to make sure it can't come back silently. This session's own
+   dogfooding run did exactly this by hand (wrote a permanent Playwright
+   spec for a confirmed finding), but the skill doesn't say to do that
+   anywhere — it's not a rule yet, just something that happened to happen
+   once.
+4. **i18n/localization checks.** The real app this was dogfooded against
+   ships 15+ language files. Nothing here checks for text overflow in
+   longer translations, locale-correct date/number formatting, or RTL
+   layout on the web side (mobile's exploratory-considerations file
+   mentions RTL in passing; web has nothing).
+5. **Observational security hygiene — not penetration testing.** Staying
+   well inside QA territory (no exploitation, no authorization needed
+   beyond what testing the app already implies): does an API response
+   include fields the current role shouldn't see at all (not a UI-hiding
+   problem, a response-body problem), do error messages leak stack
+   traces or internal paths, does the app actually enforce HTTPS
+   (this session's own dogfooding run happened to hit a correct
+   http→https redirect — worth checking for the *failure* case too,
+   which is easy to miss when the one example you saw worked).
+
+None of these are built yet. If you want one of them, that's a smaller,
+well-scoped addition on top of what's already here — the architecture
+(one reference file per concern, wired into the existing seven phases)
+is built to take exactly this kind of extension.
+
 ## Files
 
 - `SKILL.md` — orchestration: the phases, in order, what to read when.
