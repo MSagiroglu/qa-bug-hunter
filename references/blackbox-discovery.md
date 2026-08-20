@@ -83,6 +83,15 @@ shapes of request:
     Appium drives a running app/APK/IPA over the standard WebDriver
     protocol without needing anything built into the app.
 
+**Defaults for a freshly-provisioned web project:** since there's no
+existing config to defer to, set up Playwright projects for Chromium,
+Firefox, and WebKit from the start (see `test-design-techniques.md`'s
+Cross-Browser Verification — these are the three genuinely distinct
+engines; add an Edge/msedge channel project too if worth the extra run
+time for this engagement) rather than Chromium-only. Default to headed
+if this is an interactive session someone's watching; headless if it's
+an unattended batch run.
+
 **Where it goes:** a scratch/temporary location — never the target repo
 (there may not be one, and this skill doesn't commit new infrastructure
 into a project without being asked). Treat it as a session artifact: set

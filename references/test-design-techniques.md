@@ -74,6 +74,41 @@ element that wasn't meant to be there. This is cheap to run (a viewport
 resize, not a new device) and frequently uncovers layout defects nobody
 uses a debugger to find because they never manually resize the window.
 
+## Cross-Browser Verification (web)
+
+Run the initial exploratory pass in one browser (whatever the target's
+config defaults to) — don't multiply every scenario by 4 browsers from
+the start, that's cost without signal for most findings. Once a finding
+looks rendering/layout/JS-engine-related (visual defects, CSS behavior,
+JS API quirks like the one this skill's own dogfooding run hit — an
+`<img>` reporting `complete` with `naturalWidth: 0`), verify it across
+whatever other browser engines the target's execution tool already has
+configured before finalizing severity or classification.
+
+Know what you're actually testing: Chrome and Edge share the same
+rendering engine (Chromium/Blink) — running both catches Edge-specific
+behavior (its PDF viewer, enterprise policy defaults, some CSS interop
+edge cases), not a second independent engine. The real engine diversity
+is Chromium, **Firefox** (Gecko), and **WebKit** (Safari's engine) — three
+distinct engines, not four. Don't report "reproduced in all 4 browsers"
+as if that's 4x the independent evidence a single-engine reproduction
+would be; it's closer to 3 (plus one Chromium variant).
+
+**Reuse what's configured, ask before adding what isn't** — same pattern
+as the video/trace rule (`SKILL.md` Phase 5): if the target's Playwright
+(or equivalent) config already has other browser projects set up (even if
+currently commented out/disabled), enabling them costs only run time —
+just use them for cross-browser verification of a relevant finding. If
+verifying would require installing a new browser engine that isn't
+present at all (e.g. `playwright install firefox webkit`), that's a real
+setup cost — ask the user first, the same way video/trace capture does,
+rather than silently installing browser binaries.
+
+A cross-browser mismatch (bug reproduces in one engine, not another) is
+itself worth reporting even when it's not the original finding —
+capture which engines it did and didn't reproduce in as part of that
+defect's evidence.
+
 ## Interrupted-Write / Persistence Verification
 
 See `critical-defect-patterns.md` — for any feature that writes data, never

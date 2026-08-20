@@ -31,9 +31,14 @@ a minimal one yourself before falling back to manual checking: a bare
 **Playwright** project for web (no target-app integration needed, it
 drives any URL), or **Appium** for mobile (chosen over Detox/Espresso/
 XCUITest specifically because it needs no build-time instrumentation of
-the target app — it drives a running app/APK/IPA over WebDriver). Set
-this up in a scratch/temporary location, never the target repo, and treat
-it as a session artifact, not something to commit unless asked. Only if
+the target app — it drives a running app/APK/IPA over WebDriver). For a
+freshly-provisioned web project with no existing config to defer to, set
+up Chromium, Firefox, and WebKit projects from the start (the three
+genuinely distinct rendering engines — see Cross-Browser Verification
+below), not Chromium-only; default headed if a human is watching this
+session, headless for an unattended batch. Set this up in a scratch/
+temporary location, never the target repo, and treat it as a session
+artifact, not something to commit unless asked. Only if
 provisioning itself isn't possible (no install access, target
 unreachable, no way to attach to a mobile app) do you fall back to
 manual/interactive checking — and even then, say so explicitly in your
@@ -139,6 +144,18 @@ maximize scenario count):
   test at narrow mobile (~375px), tablet (~768px), and desktop (~1280px+)
   widths; confirm critical actions stay reachable/visible and there's no
   horizontal overflow.
+- **Cross-Browser Verification (web)** — run the initial pass in one
+  browser; once a finding looks rendering/layout/JS-engine-related,
+  verify across whatever other engines the target's config already has
+  before finalizing classification. Chrome and Edge share the Chromium/
+  Blink engine (Edge still worth checking for its own quirks — PDF
+  viewer, enterprise policy defaults — just don't count it as a second
+  independent engine); Firefox (Gecko) and WebKit (Safari) are the real
+  diversity. Reuse what's configured; if verifying needs installing a
+  browser engine that isn't present at all, ask first (same pattern as
+  video/trace below) rather than silently installing binaries. A
+  cross-engine mismatch is itself worth reporting even when it's not the
+  original finding.
 
 **Interrupted-write / persistence verification — for any write-capable
 feature (create/update/delete/upload), web or mobile:** never classify a
@@ -224,6 +241,13 @@ ANOMALY?     → differs from the oracle (below)?
 Never report a defect from a failed assertion alone — investigate first.
 Reuse whatever execution tooling discovery found; don't build new
 infrastructure to answer one hypothesis.
+
+**Headed vs. headless:** headed when a human is actively watching this
+run (interactive/live session) — they should see what's happening, not
+just read a transcript after. Headless for a large unattended/background
+run where speed matters more than visibility nobody's using. Defer to
+the target's existing config default unless the run's actual context
+doesn't match what it was written for.
 
 ## Phase 5 — Evidence
 

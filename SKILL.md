@@ -169,6 +169,19 @@ test infrastructure to answer a single hypothesis — use the fastest tool
 that gives a trustworthy answer (existing E2E framework, a direct API call,
 a browser devtools check).
 
+**Headed vs. headless:** if a human is actively watching this run
+(an interactive/live session), run headed — they should be able to see
+what's happening, not just read a transcript afterward. For a large
+unattended/background run nobody's watching in real time, headless is
+faster and that speed matters more than visibility nobody's using. If the
+target's config already picks one (many default headed locally, headless
+in CI), that default is usually right for the context it was written
+for — override it when the run's actual context doesn't match.
+
+**Cross-browser:** for rendering/layout/JS-engine-related findings, apply
+`references/test-design-techniques.md`'s Cross-Browser Verification
+technique before finalizing classification.
+
 ## Phase 5 — Evidence collection
 
 For every suspicious or confirmed finding, produce actual evidence files

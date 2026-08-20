@@ -48,6 +48,12 @@ up on the happy path:
   the wrong app state, connectivity loss mid-write.
 - **Responsive/layout defects** at mobile/tablet/desktop widths nobody
   manually resizes a window to check.
+- **Cross-browser rendering/engine defects** — a finding that looks
+  rendering- or JS-engine-related gets verified across whatever browser
+  engines are available (Chromium, Firefox/Gecko, WebKit/Safari — Edge
+  too, though it shares Chromium's engine so it's checked for its own
+  quirks, not counted as independent diversity) before being finalized.
+  Runs headed when you're watching live, headless for unattended batches.
 
 ## What it produces
 
