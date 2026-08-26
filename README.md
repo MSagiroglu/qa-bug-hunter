@@ -240,40 +240,71 @@ Reports are saved to `docs/qa-reports/<date>/`:
 
 ## 🇹🇷 Türkçe Kullanım Rehberi
 
-### Skill Nasıl Kullanılır?
+### Kurulum
 
-Skill, AI araçlarının test metodolojisini öğrenmesini sağlar. Siz "test et" dersiniz, AI aracınız (ben veya Claude Code) SKILL.md'yi okuyarak testleri planlar ve çalıştırır.
+```bash
+# 1. Depoyu klonla
+git clone https://github.com/MSagiroglu/qa-bug-hunter.git
+cd qa-bug-hunter
+
+# 2. Agent'ı kur (terminalde test etmek için)
+cd agent
+npm install
+npm run build
+cd ..
+```
+
+### Skill Nedir?
+
+Skill, AI araçlarına test metodolojisini öğretir. Siz natural language ile "test et" dersiniz, AI aracınız SKILL.md'yi okuyarak:
+1. Keşif yapar (Discovery)
+2. Test senaryoları tasarlar
+3. Testleri çalıştırır
+4. Kanıtları toplar
+5. Rapor ve ticket oluşturur
 
 ### Claude Code ile Kullanım
 
 **Adım 1: Skill'i kur**
 ```powershell
-# PowerShell'de çalıştır
+# PowerShell'de çalıştır (Windows)
 mklink /J "%USERPROFILE%\.claude\skills\senior-qa-explorer" "C:\Users\musta\Desktop\Sn-QA-Bug-Hunter"
+```
+
+```bash
+# macOS / Linux
+ln -s "/path/to/qa-bug-hunter" "$HOME/.claude/skills/senior-qa-explorer"
 ```
 
 **Adım 2: Claude Code'u yeniden başlat**
 
 **Adım 3: Test ettir**
+
+Doğal dil ile:
 ```
-/test https://www.amazon.com.tr
+test the login page for bugs
+amazon.com.tr'yi exploratory test et
+login modülünü test et, hataları bul
 ```
 
-Veya doğal dilde:
+Veya explicit komut ile:
 ```
-Amazon ana sayfasını test et, XSS açığı bul
+/qa-explore amazon.com.tr
+/qa-explore login-page
 ```
 
 ### OpenCode (Bu Araç) ile Kullanım
 
 Doğrudan bana söyle:
 ```
-Test et https://www.amazon.com.tr
+Amazon.com.tr'yi test et
 ```
 
 Veya:
 ```
 Amazon.com.tr'yi exploratory test et, bulgu raporu çıkar
+Login sayfasını test et, XSS açığı bul
+Responsive test et, mobil uyumluluğu kontrol et
 ```
 
 ### Cursor / Windsurf / Codex CLI ile Kullanım
@@ -287,40 +318,57 @@ For exploratory / bug-hunting test requests on this repo, read and follow:
     C:\Users\musta\Desktop\Sn-QA-Bug-Hunter\SKILL.md
 ```
 
-Sonra:
+Sonra doğal dilde:
 ```
-Test the login page for bugs
+test the login page for bugs
+login modülünü test et
 ```
 
 ### Terminal'den (AI Gerektirmez)
 
 ```bash
 cd C:\Users\musta\Desktop\Sn-QA-Bug-Hunter\agent
-npm install
-npm run build
+
+# Tam test
 node dist/cli.js test --url https://www.amazon.com.tr
+
+# Headless (CI/CD için)
+node dist/cli.js test --url https://www.amazon.com.tr --headless
+
+# Sadece DOM analizi
+node dist/cli.js analyze --url https://www.amazon.com.tr
 ```
 
 ### Örnek Kullanım Komutları
 
-| İstek | Ne olur |
-|-------|---------|
-| `Test et https://amazon.com.tr` | Tam exploratory test |
+| Komut (Doğal Dil) | Ne Olur |
+|-------------------|---------|
+| `Amazon.com.tr'yi test et` | Tam exploratory test |
 | `XSS açığı bul` | Güvenlik testleri odaklı |
 | `Responsive test et` | Mobil/tablet uyumluluk |
 | `Accessibility kontrol et` | Erişilebilirlik testleri |
 | `Login sayfasını test et` | Modül bazlı test |
 | `Hata bul, ticket çıkar` | Bulgu + Jira ticket |
 
+| Komut (Claude Code) | Ne Olur |
+|---------------------|---------|
+| `/qa-explore amazon.com.tr` | URL bazlı test |
+| `/qa-explore login` | Modül bazlı test |
+
+| Komut (Terminal) | Ne Olur |
+|------------------|---------|
+| `node dist/cli.js test --url URL` | Hızlı otomatik test |
+| `node dist/cli.js test --url URL --headless` | Arka plan testi |
+
 ### Ne Zaman Ne Kullanılır?
 
 | Durum | Kullanım |
 |-------|----------|
-| Hızlı test istiyorsan | SKILL.md (benimle konuş) |
+| Hızlı test istiyorsan | Bana söyle (SKILL.md) |
 | CI/CD'de otomatik istiyorsan | Agent (`node dist/cli.js`) |
 | Gece test etsin istiyorsan | Agent + cron |
 | AI maliyeti olmasın istiyorsan | Agent |
-| Akıllı kararlar versin istiyorsan | SKILL.md (ben) |
+| Akıllı kararlar versin istiyorsan | Bana söyle (SKILL.md) |
 
 ---
 
