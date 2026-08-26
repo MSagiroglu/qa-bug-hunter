@@ -17,6 +17,13 @@ Applying every mutation to every field produces noise, not signal.
   sanitization
 - leading/trailing whitespace
 - extremely long value, well beyond any stated max
+- **XSS payloads**: `<script>alert('XSS')</script>`,
+  `<img src=x onerror=alert('XSS')>`, `<svg onload=alert('XSS')>`,
+  `javascript:alert('XSS')` — test if field escapes/renders HTML
+- **HTML injection**: `<button>Click</button>`, `<a href="http://evil.com">link</a>`,
+  `<iframe src="http://evil.com">` — test if arbitrary HTML renders
+- **SQL fragments**: `' OR '1'='1`, `'; DROP TABLE users--`,
+  `1; UPDATE users SET role='admin'` — test if field is SQL-injection safe
 
 ## Integer
 
@@ -60,6 +67,31 @@ Applying every mutation to every field produces noise, not signal.
 - leading/trailing spaces
 - case sensitivity, if uniqueness/lookup is case-sensitive server-side
 
+## Cross-Field & State Mutations
+
+- **Empty form submission**: submit with all fields empty/default — highest
+  yield test for backend validation gaps
+- **Existing data collision**: use data already in the system to test
+  uniqueness constraints, cascade behavior, and reference integrity
+- **Type confusion in wrong field**: string in number field, number in
+  date field, HTML in plain text, URL in email field
+- **Copy-paste with rich formatting**: paste from Word/Excel/HTML — test
+  if the field sanitizes or passes through HTML/RTF
+- **Unicode edge cases**: emoji, RTL text, zero-width characters,
+  combining characters, normalization variants (café vs café)
+- **Null byte injection**: \u0000 in strings — can truncate at DB layer
+- **Whitespace attacks**: leading/trailing tabs, newlines, carriage returns,
+  multiple consecutive spaces
+- **Concurrent modification**: same record edited in two tabs/windows,
+  second save overwrites first (lost update)
+- **Stale state mutation**: read a record, another user edits it, first
+  user saves over it (stale read)
+- **API field overposting**: send unknown/extra fields to API endpoint,
+  test if they get persisted (mass assignment)
+- **API field underposting**: omit required fields, test backend validation
+- **Empty file upload**: 0-byte file, wrong extension, oversized file,
+  symlink in filename
+
 ## Applying this catalog
 
 1. From discovery, get the field's real type and constraint.
@@ -67,4 +99,10 @@ Applying every mutation to every field produces noise, not signal.
    constraint (a field with no stated max doesn't get a "max+1" test —
    it gets flagged as "no upper bound found, worth an oversized-value probe
    only if downstream storage/rendering could be affected").
-3. Prioritize per `test-design-techniques.md` before executing.
+3. **Always run empty form submission** — it's the fastest way to find
+   backend validation gaps with zero effort.
+4. **Always test existing data collision** if DB access is available —
+   it catches cascade/unique/reference issues without data generation.
+5. Prioritize per `test-design-techniques.md` before executing.
+6. For write-capable features, combine with
+   `advanced-exploratory-attacks.md` race condition scenarios.

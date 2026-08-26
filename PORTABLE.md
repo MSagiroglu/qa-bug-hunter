@@ -279,6 +279,24 @@ ordinary Phase 3 output (they run through Phase 4 like anything else):
 | Deleted | Removed from selectable/listing UI; existing records referencing it follow *some* defined rule (cascade / orphan-safe / delete-blocked) — verify it's the intended one |
 | Deactivated | Excluded from "available to add new" pickers, but records already created from it stay intact |
 
+**Advanced exploratory attacks (every run):**
+- **Empty form submission**: submit all forms with empty/default values —
+  fastest way to find backend validation gaps. If submit succeeds, backend
+  validation is missing. If no error message shown, UX is broken.
+- **Existing data collision**: use system data to test uniqueness, cascade,
+  and reference integrity without generating new data. Try to delete a
+  record referenced everywhere; try to create with duplicate unique field.
+- **Type confusion**: string in number field, number in date field, HTML
+  in plain text, URL in email field, script tags everywhere.
+- **Copy-paste attacks**: paste from Word/Excel/HTML with rich formatting —
+  test if field sanitizes or passes through HTML/RTF. Paste 10K+ chars.
+- **Unicode edge cases**: emoji (😊🔥💀), RTL text (العربية), zero-width
+  chars (\u200B), combining characters, normalization variants.
+- **Concurrent access**: same record in two tabs, second save overwrites
+  first (lost update). Race conditions from API double-submit.
+- **API contract violations**: missing fields, wrong types, null vs empty,
+  mass assignment (unknown fields), bozuk JSON, wrong Content-Type.
+
 ## Phase 4 — Execution loop
 
 Per scenario:
@@ -480,5 +498,12 @@ to learn whether anything critical was found.
       skipped them.
 - [ ] Observational security hygiene applied to normal traffic — no
       attack payloads, no exploitation attempts.
+- [ ] Empty form submission test run on all forms.
+- [ ] Existing data collision test run where DB access available.
+- [ ] Type confusion tests run (wrong data types in wrong fields).
+- [ ] API contract violation tests run.
+- [ ] Concurrent access/race condition tests run for write operations.
+- [ ] Copy-paste and Unicode edge case tests run.
+- [ ] Browser navigation (back/forward/refresh) tests run.
 - [ ] Every CONFIRMED DEFECT got a regression-lock-in offer, and the
       outcome is in the report.

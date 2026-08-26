@@ -33,35 +33,67 @@ Phase 6).
 
 ## Capability boundaries (state these honestly, don't oversell)
 
-This skill is a methodology, not an execution engine. It can only drive
-whatever test/automation tooling is actually configured and reachable in
-the current environment:
+**MANDATORY TOOLING: Playwright for web testing.**
 
-- **Web**: whatever E2E tool discovery finds (Playwright/Cypress/etc.), or
-  direct HTTP calls / a manual browser session if none exists.
+This skill is a methodology with a mandatory execution engine. For web
+testing, **Playwright is always installed and used**, regardless of
+whether the target project has its own test framework:
+
+- **Web**: Playwright is **always provisioned** in a scratch location
+  (`~/.qa-bug-hunter/playwright/`) at the start of every run. The
+  target's existing test framework (Cypress, Jest, etc.) is noted but
+  **never used as a substitute** for Playwright — we need Playwright's
+  capabilities (multi-browser, network interception, screenshot, video,
+  trace) that other frameworks may not provide. The tool goes to the
+  target URL and performs all checks by examining the DOM structure or
+  source code (if provided).
 - **Mobile (iOS/Android, native or React Native/Flutter)**: whatever mobile
   E2E tool discovery finds already configured in the repo (Detox, Appium,
   Maestro, Patrol, XCUITest, Espresso) *and* actually runnable in this
   environment (a reachable simulator/emulator/device, or a device-farm
-  connection). This skill does not itself provide simulator/emulator
-  control — it cannot open an iOS Simulator or Android Emulator on its own
-  unless the host tool exposes that capability.
+  connection).
 
-If Phase 1 discovery finds no reachable execution tooling at all — no
-repo, or a repo with no test framework, for a full testing engagement
-(not a single narrow check) — **try to provision a minimal one first**:
-see `references/blackbox-discovery.md`'s Self-Provisioned Execution
-Tooling section (Playwright for web, Appium for mobile, set up in a
-scratch location, never committed to the target repo without being
-asked). Only if provisioning itself isn't possible — no install access,
-target unreachable, no way to attach to a mobile app — fall back to
-whatever manual/interactive checking is still possible and **say so
-explicitly**, in the response and in the report's Environment/Automation
-Issues section, rather than silently limiting yourself to a code-review-
-only pass without flagging that the pass was incomplete. "I traced this
-from source but could not execute against a running app/simulator" is a
-valid, honest outcome; claiming full coverage when you only read source
-is not.
+**Phase 1 mandatory steps (always performed, no exceptions):**
+
+1. Check if Playwright is installed. If not, install it:
+   ```bash
+   mkdir -p ~/.qa-bug-hunter/playwright
+   cd ~/.qa-bug-hunter/playwright
+   npm init -y
+   npm install @playwright/test
+   npx playwright install chromium
+   ```
+2. **Browser: Chrome (Chromium) — headed mode is MANDATORY.**
+   - `headless: false` — browser window must be visible to the user at all times.
+   - The user sees every action in real-time: navigation, clicks, form fills,
+     screenshots. No invisible/headless runs for interactive sessions.
+   - Playwright config:
+     ```typescript
+     // playwright.config.ts
+     import { defineConfig } from '@playwright/test';
+     export default defineConfig({
+       use: {
+         headless: false,          // HEADED — user watches live
+         browserName: 'chromium',  // Chrome
+         screenshot: 'on',
+         trace: 'on',
+         video: 'on',
+         viewport: { width: 1280, height: 720 },
+       },
+     });
+     ```
+3. Navigate to the target URL using Playwright.
+4. Capture the DOM structure of the target page.
+5. If source code is provided, read it. If not, use DOM observation.
+6. Begin testing from the DOM/source analysis — **never skip execution**.
+7. **Every test step is visible**: the browser window stays open and the
+   user watches each action (navigation, input, click, assertion) as it
+   happens.
+
+If Playwright installation itself isn't possible — no install access,
+target unreachable — fall back to whatever manual/interactive checking
+is still possible and **say so explicitly**, in the response and in the
+report's Environment/Automation Issues section.
 
 ## Phase 1 — Discovery (always first, never skip)
 
@@ -142,6 +174,19 @@ mobile:** also read `references/critical-defect-patterns.md` and include
 its interrupted-write scenarios (refresh/kill mid-write, network drop
 timed to the write, double-submit, throttled connection) — never classify
 a write as successful based on the UI's own success signal alone.
+
+**Advanced exploratory attacks (every run):** also read
+`references/advanced-exploratory-attacks.md` and include:
+- **Empty form submission**: submit all forms with empty/default values —
+  fastest way to find backend validation gaps
+- **Existing data collision**: use system data to test uniqueness, cascade,
+  and reference integrity without generating new data
+- **Type confusion**: wrong data types in wrong fields (string in number,
+  HTML in text, URL in email)
+- **Copy-paste attacks**: rich-format pasting from Word/Excel/HTML
+- **Unicode edge cases**: emoji, RTL, zero-width chars, normalization
+- **Concurrent access**: race conditions from multi-tab/multi-user editing
+- **API contract violations**: missing fields, wrong types, mass assignment
 
 **Web layout:** include the Responsive/Viewport Testing technique from
 `references/test-design-techniques.md` for any screen with viewport-
@@ -310,6 +355,13 @@ exploratory pass on the wrong feature wastes the whole pipeline.
 - [ ] Observational security hygiene applied to normal traffic
       (`references/security-hygiene.md`) — no attack payloads, no
       exploitation attempts.
+- [ ] Empty form submission test run on all forms.
+- [ ] Existing data collision test run where DB access available.
+- [ ] Type confusion tests run (wrong data types in wrong fields).
+- [ ] API contract violation tests run.
+- [ ] Concurrent access/race condition tests run for write operations.
+- [ ] Copy-paste and Unicode edge case tests run.
+- [ ] Browser navigation (back/forward/refresh) tests run.
 - [ ] Every CONFIRMED DEFECT got a regression-lock-in offer, and the
       outcome (added / declined / no suite to add to) is in the report.
 - [ ] Report written to `docs/qa-reports/` and summarized in-conversation.

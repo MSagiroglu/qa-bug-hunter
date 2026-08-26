@@ -62,46 +62,80 @@ surface that only displays a *derived* value (never the literal id/name)
 won't turn up this way. Say so in the report rather than implying the
 sweep was exhaustive.
 
-## Self-provisioned execution tooling
+## Self-provisioned execution tooling (MANDATORY for web)
 
-"No source access" doesn't mean "no automated actions." Distinguish two
-shapes of request:
+**Playwright is ALWAYS installed and used for web testing.** This is not
+optional. The target project's own test framework (Cypress, Jest, etc.)
+is noted but never used as a substitute.
 
-- **A single, narrow hypothesis check** (you have *some* environment
-  access, this is one specific question) — don't scaffold anything, use
-  the host's interactive browser/device tool directly for that one check.
-- **A full testing engagement with zero reachable execution tooling** —
-  no repo, or a repo with no test framework, and the ask is "test this
-  and find bugs," not one narrow question — provision a minimal,
-  throwaway automation project yourself:
-  - **Web**: a minimal **Playwright** project. It needs no integration
-    with the target app at all — it drives any URL, which is exactly
-    what "just handed a URL" requires.
-  - **Mobile**: **Appium**. Chosen specifically over Detox/Espresso/
-    XCUITest because those require build-time instrumentation of the
-    target app's source — unavailable by definition in this scenario.
-    Appium drives a running app/APK/IPA over the standard WebDriver
-    protocol without needing anything built into the app.
+### Mandatory Playwright Setup (every run, no exceptions)
 
-**Defaults for a freshly-provisioned web project:** since there's no
-existing config to defer to, set up Playwright projects for Chromium,
-Firefox, and WebKit from the start (see `test-design-techniques.md`'s
-Cross-Browser Verification — these are the three genuinely distinct
-engines; add an Edge/msedge channel project too if worth the extra run
-time for this engagement) rather than Chromium-only. Default to headed
-if this is an interactive session someone's watching; headless if it's
-an unattended batch run.
+```bash
+# Step 1: Create scratch location
+mkdir -p ~/.qa-bug-hunter/playwright
+cd ~/.qa-bug-hunter/playwright
 
-**Where it goes:** a scratch/temporary location — never the target repo
-(there may not be one, and this skill doesn't commit new infrastructure
-into a project without being asked). Treat it as a session artifact: set
-up, use for the rest of this engagement's scenarios, and don't assume it
-should persist or get committed anywhere unless the user says so.
+# Step 2: Initialize project
+npm init -y
 
-**If provisioning itself isn't possible** (no package-manager/install
-access in this environment, the target genuinely isn't reachable from
-here, no way to get a mobile app onto anything Appium can attach to) —
-that's when `SKILL.md`'s Capability Boundaries rule applies: say so
-explicitly, fall back to whatever manual/interactive checking is still
-possible, and flag the pass as incomplete rather than silently narrowing
-scope.
+# Step 3: Install Playwright
+npm install @playwright/test
+
+# Step 4: Install Chrome (Chromium) only
+npx playwright install chromium
+
+# Step 5: Create playwright.config.ts — Chrome HEADED mode
+cat > playwright.config.ts << 'EOF'
+import { defineConfig } from '@playwright/test';
+export default defineConfig({
+  use: {
+    headless: false,          // HEADED — user watches live
+    browserName: 'chromium',  // Chrome browser
+    screenshot: 'on',
+    trace: 'on',
+    video: 'on',
+    viewport: { width: 1280, height: 720 },
+    actionTimeout: 10000,
+  },
+  timeout: 60000,
+  retries: 0,
+});
+EOF
+```
+
+**CRITICAL: `headless: false` — the browser window MUST be visible.**
+The user sees every action in real-time:
+- Browser opens Chrome window
+- Navigation to target URL is visible
+- Every click, input, form fill is visible
+- Screenshots are captured automatically
+- The user can intervene or stop at any time
+
+### Why Playwright Always (not the target's framework)
+
+1. **Multi-browser**: Chromium, Firefox, WebKit — three distinct engines
+2. **Network interception**: capture/modify API requests
+3. **Screenshot/Video/Trace**: built-in evidence capture
+4. **DOM access**: direct page evaluation, locator API
+5. **No integration needed**: drives any URL, no app-specific setup
+
+### Execution Flow
+
+1. Install Playwright (if not already installed)
+2. Navigate to target URL
+3. Capture DOM structure
+4. If source code provided → read it for constraint analysis
+5. If no source → use DOM observation + network traffic
+6. Execute all test scenarios using Playwright
+7. Capture evidence (screenshots, network logs, console)
+
+### Where it goes
+
+`~/.qa-bug-hunter/playwright/` — a scratch location, never committed
+to the target repo. Treat as a session artifact.
+
+### If provisioning fails
+
+Only if `npm install` or `playwright install` fails (no network, no
+install permissions) — say so explicitly in the report and fall back
+to manual checking. Never silently skip Playwright.

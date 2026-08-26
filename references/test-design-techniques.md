@@ -131,16 +131,89 @@ type, values outside allowed range, values over/under length limits,
 duplicate submissions, incomplete form submitted, dependent fields changed
 out of order.
 
+## Empty Form Submission Testing
+
+Her formda çalıştırılması gereken en hızlı, en yüksek-yield test.
+Backend validasyon gap'lerini bulmanın en temel yolu.
+
+**Uygulama:**
+- Tüm alanları boş/varsayılan bırakarak Submit tıkla
+- Sadece zorunlu alanları boş bırakarak submit et
+- Tüm alanları boşluk ("   ") ile doldurarak submit et
+- Dropdown'ları seçimsiz bırakarak submit et
+- Tarih alanlarını boş bırakarak submit et
+
+**Sinyal:**
+- Submit başarılıysa → backend validasyon eksik (CONFIRMED DEFECT)
+- Hata mesajı yoksa → kullanıcı bilgilendirilmiyor (CONFIRMED DEFECT)
+- Backend'de 400/500 varsa → backend validasyon var ama frontend'de mesaj yok
+
+## Existing Data Reproduction
+
+Sistemdeki mevcut verilerle hata tekrarı. Yeni veri üretmek yerine
+mevcut verileri manipüle et.
+
+**Uygulama:**
+- Var olan bir kaydı silmeye çalış (her yerden referansı olan kayıt)
+- Var olan bir kaydı duplicate isimle güncellemeye çalış
+- Silinmiş/deaktif edilmiş bir kaydı referans alan yerlere ekleme yapmaya çalış
+- Mevcut kullanıcının email'ini başka bir kullanıcıya atamaya çalış
+- ID ile farklı kullanıcının verisini değiştirmeye çalış (IDOR)
+- Sistemdeki ilk kaydı silmeyi dene (bootstrap data)
+
+## Type Confusion Attacks
+
+Her alana beklenmeyen veri tipini gönder.
+
+**Uygulama:**
+- Sayısal alanlara: harf, emoji, Unicode, bozuk karakter
+- Tarih alanına: sayı, harf, 100 yıl sonrası, 1900 öncesi
+- Email alanına: URL, telefon numarası, script tag
+- Dropdown'a: HTML injection, script injection
+- Boolean alanlara: "true", "false", 0, 1, "", null
+- ID alanlarına: negatif, sıfır, decimal, harf karışımı
+
+## Concurrent Access Testing
+
+Aynı anda birden fazla istemci erişimi testleri.
+
+**Uygulama:**
+- Aynı kaydı iki farklı sekmede aç ve ikisini de güncelle
+- API ile aynı anda create + delete yap
+- Kullanıcı rolünü değiştirirken aynı anda veri erişimi
+- Import devam ederken aynı tabloyu sorgula
+- Batch operation devam ederken tekil kayıt değiştir
+
+## API Contract Violations
+
+API'yi sözleşmeye aykırı kullanma.
+
+**Uygulama:**
+- Zorunlu alanları eksik gönder
+- Fazla alan gönder (unknown fields → mass assignment)
+- Yanlış tipte değerler (string yerine array)
+- Null değer gönder (boşluksuz)
+- Bozuk JSON
+- Wrong Content-Type
+- Missing Authorization header
+- Expired token
+- Wrong HTTP method (GET yerine POST)
+
 ## Prioritization
 
 Before executing, rank candidate scenarios by:
 
-1. Business impact if broken (data integrity, money, permissions > cosmetic)
-2. Complexity / number of dependencies (more moving parts → more likely to
+1. **Empty form submission** — always run, zero cost, highest yield
+2. **Existing data collision** — run if DB access available
+3. Business impact if broken (data integrity, money, permissions > cosmetic)
+4. **Type confusion** — fast, high defect detection rate
+5. **API contract violations** — backend validation gap detection
+6. Complexity / number of dependencies (more moving parts → more likely to
    have an untested interaction)
-3. Whether frontend and backend validation appear to diverge (see
+7. Whether frontend and backend validation appear to diverge (see
    `discovery.md` §3 — this is the highest-yield signal)
-4. Security implications (authorization, data leakage between users)
+8. **Race condition/concurrent** — critical, harder to reproduce
+9. Security implications (authorization, data leakage between users)
 
 Execute the top of that ranking first. Stop generating more scenarios once
 you're producing variations that don't change the risk profile.

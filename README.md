@@ -67,6 +67,24 @@ up on the happy path:
   missing HTTP→HTTPS redirect. Passive only: this reads traffic the run
   already produces, it never crafts attack input — that's a different,
   separately-authorized kind of engagement, not this skill.
+- **Empty submission defects** — forms that accept all-empty input and
+  persist to database, missing backend validation entirely. The fastest
+  way to find backend validation gaps with zero effort.
+- **Existing data collision defects** — system data that can be deleted
+  despite downstream references, duplicated despite uniqueness constraints,
+  or accessed across authorization boundaries (IDOR).
+- **Type confusion defects** — non-numeric values in numeric fields, HTML
+  in plain text fields, script tags in input fields, wrong data types
+  causing crashes or data corruption.
+- **Race condition defects** — lost updates from concurrent editing,
+  duplicate records from parallel creation, inconsistent state from
+  simultaneous operations.
+- **API contract violations** — mass assignment via unknown fields, missing
+  required field validation, wrong Content-Type handling, null vs empty
+  distinction failures.
+- **Copy-paste and Unicode defects** — HTML injection via rich-format
+  pasting, layout breaks from emoji/RTL text, truncation from null bytes,
+  normalization issues creating duplicate representations.
 
 ## What it produces
 
@@ -141,6 +159,85 @@ No specific gap is queued right now. The architecture (one reference
 file per concern, wired into the existing seven phases) is built to take
 the next one whenever it turns up — issues and PRs welcome.
 
+## Standalone Agent (NEW)
+
+The QA Bug Hunter is now also a **standalone CLI agent** that can run
+independently without any AI coding tool. It uses Playwright to test
+web applications and generates reports automatically.
+
+### Advantage
+
+| Feature | Skill (AI Agent) | Standalone Agent |
+|---------|------------------|------------------|
+| Requires AI tool | Yes (Claude, Cursor, etc.) | No |
+| Runs independently | No | Yes |
+| Automated CI/CD | No | Yes |
+| Scheduled runs | No | Yes |
+| No AI cost | No | Yes |
+| Full AI reasoning | Yes | No |
+
+**Use the Skill when:** You need AI to understand context, reason about
+business logic, and make judgment calls.
+
+**Use the Agent when:** You need fast, repeatable, automated testing
+without AI costs — CI/CD pipelines, nightly regression runs, quick
+smoke tests.
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/MSagiroglu/qa-bug-hunter.git
+cd qa-bug-hunter/agent
+
+# Install dependencies
+npm install
+
+# Build
+npm run build
+```
+
+### Usage
+
+```bash
+# Basic test
+node dist/cli.js test --url https://example.com
+
+# Headless mode (for CI/CD)
+node dist/cli.js test --url https://example.com --headless
+
+# Custom timeout
+node dist/cli.js test --url https://example.com --timeout 120000
+
+# DOM analysis only
+node dist/cli.js analyze --url https://example.com
+```
+
+### Test Suites
+
+| Suite | Tests | What it checks |
+|-------|-------|----------------|
+| Security | 3 | XSS (10 payloads), SQL Injection (10 payloads), HTML Injection (8 payloads) |
+| Input | 5 | Empty submit, Long strings (up to 50K), Special chars, Unicode, Type confusion |
+| Responsive | 3 | Mobile (375px), Tablet (768px), Desktop (1920px) |
+| Accessibility | 3 | Alt text, Form labels, Heading hierarchy |
+| Navigation | 2 | Broken links (internal only), Console errors |
+
+### Features
+
+- **Video Recording:** Every test session is recorded
+- **Headed Mode:** Tests run in full-screen headed mode by default
+- **Evidence Collection:** Screenshots and video for every test
+- **Jira-Ready Tickets:** Formatted tickets with steps, actual/expected, evidence
+- **Technical Details:** JSON details for each test result
+
+### Output
+
+Reports are saved to `docs/qa-reports/<date>/`:
+- `report.markdown` — Full test report with video link
+- `tickets/tickets.md` — Jira-format tickets for failures
+- `evidence/` — Screenshots and evidence files
+
 ## Files
 
 - `SKILL.md` — orchestration: the phases, in order, what to read when.
@@ -157,6 +254,9 @@ the next one whenever it turns up — issues and PRs welcome.
   prioritize scenarios by risk instead of maximizing count.
 - `references/input-mutation-catalog.md` — mutation menu per semantic
   input type (web forms).
+- `references/advanced-exploratory-attacks.md` — senior QA attack vectors:
+  empty form submission, existing data collision, type confusion, copy-paste
+  attacks, Unicode edge cases, concurrent access, API contract violations.
 - `references/mobile-exploratory-considerations.md` — mobile-specific
   error-guessing (lifecycle, connectivity, permissions, deep links,
   biometrics, device fragmentation).
@@ -186,6 +286,7 @@ the next one whenever it turns up — issues and PRs welcome.
 - `PORTABLE.md` — the entire methodology in one self-contained file, no
   external references — paste it as a system/custom instruction into any
   AI tool that can't read local files.
+- `agent/` — Standalone CLI agent (Node.js + Playwright).
 
 ## Install
 
