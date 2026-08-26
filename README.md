@@ -238,6 +238,92 @@ Reports are saved to `docs/qa-reports/<date>/`:
 - `tickets/tickets.md` — Jira-format tickets for failures
 - `evidence/` — Screenshots and evidence files
 
+## 🇹🇷 Türkçe Kullanım Rehberi
+
+### Skill Nasıl Kullanılır?
+
+Skill, AI araçlarının test metodolojisini öğrenmesini sağlar. Siz "test et" dersiniz, AI aracınız (ben veya Claude Code) SKILL.md'yi okuyarak testleri planlar ve çalıştırır.
+
+### Claude Code ile Kullanım
+
+**Adım 1: Skill'i kur**
+```powershell
+# PowerShell'de çalıştır
+mklink /J "%USERPROFILE%\.claude\skills\senior-qa-explorer" "C:\Users\musta\Desktop\Sn-QA-Bug-Hunter"
+```
+
+**Adım 2: Claude Code'u yeniden başlat**
+
+**Adım 3: Test ettir**
+```
+/test https://www.amazon.com.tr
+```
+
+Veya doğal dilde:
+```
+Amazon ana sayfasını test et, XSS açığı bul
+```
+
+### OpenCode (Bu Araç) ile Kullanım
+
+Doğrudan bana söyle:
+```
+Test et https://www.amazon.com.tr
+```
+
+Veya:
+```
+Amazon.com.tr'yi exploratory test et, bulgu raporu çıkar
+```
+
+### Cursor / Windsurf / Codex CLI ile Kullanım
+
+Proje kökünde `AGENTS.md` oluştur:
+```markdown
+## Exploratory QA testing
+
+For exploratory / bug-hunting test requests on this repo, read and follow:
+
+    C:\Users\musta\Desktop\Sn-QA-Bug-Hunter\SKILL.md
+```
+
+Sonra:
+```
+Test the login page for bugs
+```
+
+### Terminal'den (AI Gerektirmez)
+
+```bash
+cd C:\Users\musta\Desktop\Sn-QA-Bug-Hunter\agent
+npm install
+npm run build
+node dist/cli.js test --url https://www.amazon.com.tr
+```
+
+### Örnek Kullanım Komutları
+
+| İstek | Ne olur |
+|-------|---------|
+| `Test et https://amazon.com.tr` | Tam exploratory test |
+| `XSS açığı bul` | Güvenlik testleri odaklı |
+| `Responsive test et` | Mobil/tablet uyumluluk |
+| `Accessibility kontrol et` | Erişilebilirlik testleri |
+| `Login sayfasını test et` | Modül bazlı test |
+| `Hata bul, ticket çıkar` | Bulgu + Jira ticket |
+
+### Ne Zaman Ne Kullanılır?
+
+| Durum | Kullanım |
+|-------|----------|
+| Hızlı test istiyorsan | SKILL.md (benimle konuş) |
+| CI/CD'de otomatik istiyorsan | Agent (`node dist/cli.js`) |
+| Gece test etsin istiyorsan | Agent + cron |
+| AI maliyeti olmasın istiyorsan | Agent |
+| Akıllı kararlar versin istiyorsan | SKILL.md (ben) |
+
+---
+
 ## Files
 
 - `SKILL.md` — orchestration: the phases, in order, what to read when.
