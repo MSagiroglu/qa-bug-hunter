@@ -7,6 +7,20 @@ category: testing
 
 # Senior QA Explorer
 
+## 🚨 MANDATORY ENFORCEMENT - READ BEFORE EVERY RUN
+
+**Before starting ANY test, you MUST:**
+1. Read `ENFORCEMENT.md` - it contains the critical rules that CANNOT be skipped
+2. Complete the checklist in `ENFORCEMENT.md` - check each item
+3. If you cannot check an item, EXPLAIN WHY before proceeding
+
+**After completing ALL tests, you MUST:**
+1. Re-read `ENFORCEMENT.md`
+2. Complete the SELF-AUDIT section
+3. If any item is unchecked, FIX IT before submitting results
+
+**If you skip this enforcement, your results are INVALID.**
+
 ## Purpose
 
 Default behavior for most coding agents, once a requested flow works, is to
@@ -30,6 +44,56 @@ A successful happy path is the *start* of testing, not the end. Every phase
 below exists to answer one question: **how can this break?** Do not report a
 finding as a defect on a failed assertion alone — investigate first (see
 Phase 6).
+
+## AGENTIC BEHAVIOR — Self-Directed Exploration
+
+**This skill is AGENTIC, not MATBU (template-based).** You are not a script
+that runs predetermined steps. You are a senior QA engineer who:
+
+1. **Reads source code deeply** to understand ALL possible flows, not just
+   the happy path. Trace: UI → frontend validation → API → backend
+   validation → business logic → DB → response → UI state.
+
+2. **Learns the DOM structure** before testing. Understand what elements
+   exist, their states (visible/hidden/disabled), their text content, and
+   their relationships.
+
+3. **Discovers test data from the live system** — don't invent test data,
+   use what's actually in the database. Read table contents, existing
+   records, and their states.
+
+4. **Thinks like a malicious user** — what happens when I do X? What
+   happens when I combine Y and Z? What happens when I break the expected
+   order?
+
+5. **Follows ALL reference files** in `references/` directory. These are
+   NOT optional. Read them ALL before designing tests.
+
+6. **Generates tests from source code analysis** — if you see a search
+   field, test case sensitivity, partial match, debounce behavior, special
+   characters. If you see a date filter, test invalid ranges, boundary
+   values, timezone issues. If you see a CRUD operation, test empty
+   submissions, duplicates, type confusion.
+
+7. **Never stops at "it works"** — always ask "what else could go wrong?"
+
+8. **Enforces SYNCHRONOUS UI updates** — After every create/update/delete
+   operation, the UI MUST reflect the change IMMEDIATELY without requiring
+   a page refresh. If the user must refresh to see their change, that is
+   a DEFECT. Test this by:
+   - Performing the operation
+   - Waiting for the API response
+   - Checking if the UI updated automatically
+   - If not updated: CONFIRMED DEFECT (UI not synchronized)
+   - Document the refresh requirement as a bug
+
+9. **Maintains TEST DATA HYGIENE** — Tests MUST:
+   - NEVER modify existing production/test data
+   - ALWAYS create NEW test data for each test
+   - ALWAYS clean up ALL created test data after tests complete
+   - Leave the system in the SAME state as before testing
+   - This is MANDATORY, not optional
+   - Document all created data and verify cleanup
 
 ## Capability boundaries (state these honestly, don't oversell)
 
@@ -63,10 +127,11 @@ whether the target project has its own test framework:
    npm install @playwright/test
    npx playwright install chromium
    ```
-2. **Browser: Chrome (Chromium) — headed mode is MANDATORY.**
-   - `headless: false` — browser window must be visible to the user at all times.
+2. **Browser: Chrome (Chromium) — HEADED MODE IS MANDATORY.**
+   - `headless: false` — browser window MUST be visible to the user at all times.
+   - **FULL SCREEN** — browser window MUST be maximized/fullscreen.
    - The user sees every action in real-time: navigation, clicks, form fills,
-     screenshots. No invisible/headless runs for interactive sessions.
+     screenshots. **NO invisible/headless runs — this is non-negotiable.**
    - Playwright config:
      ```typescript
      // playwright.config.ts
@@ -78,7 +143,10 @@ whether the target project has its own test framework:
          screenshot: 'on',
          trace: 'on',
          video: 'on',
-         viewport: { width: 1280, height: 720 },
+         viewport: { width: 1920, height: 1080 },  // FULL HD
+         launchOptions: {
+           args: ['--start-maximized'],  // FULL SCREEN
+         },
        },
      });
      ```
@@ -97,51 +165,93 @@ report's Environment/Automation Issues section.
 
 ## Phase 1 — Discovery (always first, never skip)
 
-Read `references/discovery.md` and follow it before generating or running
-any test. It covers: detecting the target repo's stack, test runner, and
-existing test structure; tracing the feature's implementation (UI → frontend
-validation → API → backend validation → business logic → DB → response →
-UI state); and what to do when no test tooling exists yet.
+**THIS PHASE IS MANDATORY. DO NOT SKIP OR RUSH THROUGH IT.**
 
-**No source access at all** (just a URL/credentials, or a repo you can't
-read the relevant parts of): read `references/blackbox-discovery.md`
-instead — it covers black-box feature tracing via DOM/network observation,
-and provisioning your own minimal Playwright/Appium tooling when nothing
-reachable exists yet.
+### Step 1.1 — Source Code Deep Dive
 
-If a companion skill already exists in this environment specifically for
-*how* to write/run tests in the target repo's own framework and
-conventions (hooks, page objects, naming — the execution-detail layer,
-distinct from this skill's what-and-why), load and follow it for the
-mechanics once you've decided what to test.
+If source code is provided, you MUST:
 
-**Shared/library entities:** while identifying the target entity's
-backend representation, check whether it's referenced by other
-tables/services/frontend components (a library, config, or master-data
-record) rather than a leaf feature nothing else depends on. If shared,
-also read `references/impact-analysis.md` — this triggers automatically,
-it's part of the same discovery pass, not a separate ask.
+1. **Read ALL relevant source files** — not just one file. Read:
+   - Frontend components (HTML templates, JS/TS controllers, directives)
+   - Backend API endpoints (controllers, services, repositories)
+   - Database models/schemas if available
+   - Route definitions
+   - Validation rules (both frontend and backend)
 
-**Database access:** if a database connection is already available (a
-connection string in the target's own config for a test/staging
-environment, credentials the user has explicitly provided) — not
-something you go set up — read `references/database-verification.md` and
-use it as the strongest available persistence oracle for the rest of this
-run. Read-only, always; see that file for why.
+2. **Trace the complete data flow** for each feature:
+   ```
+   User Action → UI Event Handler → Frontend Validation → API Call
+   → Backend Validation → Business Logic → Database Operation
+   → Response → UI Update
+   ```
+
+3. **Identify ALL inputs** — every field, dropdown, checkbox, radio button,
+   date picker, file upload, etc. Note their types, constraints, and
+   validation rules.
+
+4. **Identify ALL states** — loading, empty, error, success, partial,
+   disabled, hidden. What triggers each state?
+
+5. **Identify ALL API calls** — endpoints, methods, request/response
+   formats, authentication requirements.
+
+6. **Identify ALL business rules** — uniqueness constraints, status
+   transitions, permission checks, calculated fields.
+
+### Step 1.2 — DOM Structure Analysis
+
+Navigate to the target URL and:
+
+1. **Map the page structure** — what sections, tabs, modals, forms exist?
+2. **Identify interactive elements** — buttons, inputs, dropdowns, links.
+   Note their IDs, classes, names, and aria attributes.
+3. **Identify data display elements** — tables, lists, cards, charts.
+   Note what data they show and how it's formatted.
+4. **Identify hidden elements** — what's in the DOM but not visible?
+   What triggers visibility?
+5. **Capture network requests** — what API calls does the page make on
+   load? What data does it fetch?
+
+### Step 1.3 — Test Framework Analysis
+
+If the target repo has existing tests:
+
+1. **Read the test configuration** — what framework, what settings, what
+   environment variables?
+2. **Read existing test files** — what patterns do they use? What page
+   objects exist? What helpers are available?
+3. **Understand the test data setup** — how do tests create users, login,
+   create test data? Is there a database seed?
+4. **Identify test gaps** — what's NOT tested? What scenarios are missing?
+
+### Step 1.4 — Environment Analysis
+
+1. **Check authentication** — how do you login? What credentials work?
+   Is there a test account?
+2. **Check the database** — can you read it directly? What's the schema?
+   What data exists?
+3. **Check the API** — can you call endpoints directly? What tools are
+   available (curl, Postman, etc.)?
+4. **Check the logs** — can you access backend logs? Console output?
+
+Read `references/discovery.md` for the full discovery checklist. If no
+source code is available, read `references/blackbox-discovery.md` instead.
 
 **Multi-language apps:** if discovery finds the app supports more than
 one language/locale, also read `references/i18n-checks.md`. Skip it for
 single-language apps — don't force this check where it can't apply.
 
+**Shared/library entities:** while identifying the target entity's
+backend representation, check whether it's referenced by other
+tables/services/frontend components. If shared, also read
+`references/impact-analysis.md`.
+
+**Database access:** if a database connection is already available — not
+something you go set up — read `references/database-verification.md` and
+use it as the strongest available persistence oracle.
+
 Do not generate test scenarios before discovery is done. Guessing at
 constraints you haven't verified in source produces noise, not defects.
-
-**Mobile targets:** when the target is a mobile app (React Native, Flutter,
-or native iOS/Android), also read `references/mobile-discovery.md` — it
-covers stack/test-tool detection (Detox, Appium, Maestro, Patrol, XCUITest,
-Espresso, etc.) and the mobile-specific parts of the feature trace (local
-persistence, permissions, deep links, lifecycle hooks, platform divergence
-between iOS and Android).
 
 ## Phase 2 — Test model
 
@@ -149,65 +259,139 @@ From discovery, enumerate for the target feature: inputs and their
 semantic types, actions/buttons, states and transitions, dependencies
 between fields, and the API contract. This is the map Phase 3 works from.
 
+**For each input, document:**
+- Type (text, number, date, email, password, dropdown, checkbox, radio, file)
+- Constraints (required, min/max length, pattern, unique, format)
+- Default value
+- Validation rules (frontend and backend)
+- Edge cases to test (empty, boundary, special characters, XSS, SQL injection)
+
+**For each action, document:**
+- Trigger (button click, form submit, URL change)
+- Prerequisites (authentication, permissions, data state)
+- Expected outcome (UI change, API call, database change)
+- Error handling (what happens on failure?)
+
+**For each state, document:**
+- How to reach it
+- What it looks like (DOM structure)
+- Transitions to other states
+- Data requirements
+
 If Phase 1 found the entity is shared, also list every consumer surface
 `impact-analysis.md` found — each one is a model entry the same way an
 input field is.
 
 ## Phase 3 — Test design
 
-Read `references/test-design-techniques.md` (which technique to use when,
-and how to prioritize by risk/impact rather than maximize count) and
-`references/input-mutation-catalog.md` (candidate mutations per semantic
-input type). Generate positive, negative, boundary, and exploratory
-scenarios. Every mutation must be gated by something discovery actually
-found (a type, a min/max, a regex, a business rule) — do not apply a
-mutation just because it's on the list.
+**THIS PHASE IS MANDATORY. YOU MUST READ ALL REFERENCE FILES.**
+
+### Step 3.1 — Read ALL Reference Files
+
+Before designing ANY test, you MUST read these files IN ORDER:
+
+1. `references/test-design-techniques.md` — which technique to use when,
+   and how to prioritize by risk/impact rather than maximize count
+2. `references/input-mutation-catalog.md` — candidate mutations per semantic
+   input type
+3. `references/critical-defect-patterns.md` — interrupted-write scenarios
+   (refresh/kill mid-write, network drop timed to the write, double-submit,
+   throttled connection)
+4. `references/advanced-exploratory-attacks.md` — empty form submission,
+   existing data collision, type confusion, copy-paste attacks, unicode
+   edge cases, concurrent access, API contract violations
+5. `references/oracle-hierarchy.md` — how to determine expected behavior
+6. `references/defect-classification.md` — classification taxonomy,
+   severity rubric, and required fields per confirmed defect
+7. `references/evidence-capture.md` — what evidence to collect and how
+8. `references/jira-ticket-template.md` — per-defect ticket format
+
+**DO NOT SKIP ANY OF THESE FILES.** Each one contains critical information
+for designing effective tests.
+
+### Step 3.2 — Generate Test Scenarios
+
+Based on source code analysis and reference file reading, generate:
+
+**Positive scenarios (happy path):**
+- Core functionality works as expected
+- Valid inputs produce correct outputs
+- State transitions happen correctly
+
+**Negative scenarios (error handling):**
+- Invalid inputs are rejected with appropriate error messages
+- Missing required fields are caught
+- Duplicate data is handled (uniqueness constraints)
+- Permission violations are caught
+
+**Boundary scenarios (edge cases):**
+- Minimum/maximum values
+- Empty strings vs. whitespace-only strings
+- Very long inputs (500+ characters)
+- Special characters (emoji, RTL, zero-width chars)
+- Date boundaries (start after end, far past/future dates)
+
+**Exploratory scenarios (what-if analysis):**
+- What if I refresh during a form submission?
+- What if I click submit twice quickly?
+- What if I change one field after another is validated?
+- What if I use the back button?
+- What if I open the same page in two tabs?
+
+**Search-specific scenarios (if search exists):**
+- Case sensitivity (exact case, all upper, all lower, mixed case)
+- Partial match (first N characters, middle characters, last characters)
+- Multi-word search (space-separated, multiple fields)
+- Special characters in search (XSS, SQL injection, regex)
+- Empty search (clears filter, shows all results)
+- Non-existent search (returns empty state, shows message)
+- Debounce behavior (how many keystrokes before search triggers?)
+- Search with existing data (use actual records from the database)
+
+**Date filter scenarios (if date filters exist):**
+- Start date after end date
+- Same start and end date
+- Far past dates (before data exists)
+- Far future dates (no data yet)
+- Timezone handling
+- Clearing date filters
+- Multiple filter combinations (date + search + status)
+
+**CRUD scenarios (if create/update/delete exists):**
+- Empty form submission (all fields blank)
+- Duplicate name/data (uniqueness validation)
+- Type confusion (string in number field, HTML in text field)
+- XSS in form fields (script injection)
+- SQL injection in form fields
+- Concurrent edits (two tabs editing same record)
+- Interrupted writes (refresh during save, network drop)
+- Status transitions (active → inactive → active)
+- Permission checks (can user X edit user Y's data?)
+- **SYNCHRONOUS UI UPDATE** (MANDATORY): After create/update/delete, verify
+  UI reflects change IMMEDIATELY without refresh. If refresh needed → DEFECT.
+
+**Test Data Hygiene (MANDATORY for ALL CRUD tests):**
+- NEVER modify existing production/test data
+- ALWAYS create NEW test data with unique identifiers (e.g., "Test_Template_20260827_001")
+- ALWAYS clean up ALL created test data after tests complete
+- Leave system in SAME state as before testing
+- Document all created data and verify cleanup in final step
 
 **Mobile targets:** also read `references/mobile-exploratory-considerations.md`
-for mobile-specific error-guessing (lifecycle interruptions, connectivity
-loss, permission-state changes, deep links/push notifications, biometric
-auth, device/OS fragmentation). Same gating rule applies — only scenarios
-actually reachable by the feature under test.
-
-**Every write-capable feature (create/update/delete/upload), web or
-mobile:** also read `references/critical-defect-patterns.md` and include
-its interrupted-write scenarios (refresh/kill mid-write, network drop
-timed to the write, double-submit, throttled connection) — never classify
-a write as successful based on the UI's own success signal alone.
-
-**Advanced exploratory attacks (every run):** also read
-`references/advanced-exploratory-attacks.md` and include:
-- **Empty form submission**: submit all forms with empty/default values —
-  fastest way to find backend validation gaps
-- **Existing data collision**: use system data to test uniqueness, cascade,
-  and reference integrity without generating new data
-- **Type confusion**: wrong data types in wrong fields (string in number,
-  HTML in text, URL in email)
-- **Copy-paste attacks**: rich-format pasting from Word/Excel/HTML
-- **Unicode edge cases**: emoji, RTL, zero-width chars, normalization
-- **Concurrent access**: race conditions from multi-tab/multi-user editing
-- **API contract violations**: missing fields, wrong types, mass assignment
+for mobile-specific error-guessing.
 
 **Web layout:** include the Responsive/Viewport Testing technique from
 `references/test-design-techniques.md` for any screen with viewport-
 dependent layout.
 
-**Shared entities:** generate `impact-analysis.md`'s created/edited/
-deleted/deactivated × consumer-surface matrix as ordinary scenarios in
-this same list — they run through Phase 4 like everything else.
-
 **Every screen (once per screen, not per scenario):** run
 `references/accessibility-checks.md`'s page-level pass.
 
-**Multi-language apps:** include `references/i18n-checks.md`'s scenarios
-(text overflow in translation, locale-correct formatting, RTL,
-pluralization).
+**Multi-language apps:** include `references/i18n-checks.md`'s scenarios.
 
 **Every feature (observational, not a separate testing pass):** apply
 `references/security-hygiene.md` to whatever traffic/responses this run
-already produces — response overexposure, error message hygiene,
-transport/cookie basics. Passive observation only, never craft attack
-input — see that file's scope note before using it.
+already produces.
 
 ## Phase 4 — Execution loop
 
@@ -223,15 +407,36 @@ ANOMALY?     → does observation differ from the oracle (Phase 6)?
         → CLASSIFICATION (Phase 6)
 ```
 
-Example:
-```
-Hypothesis: Weight field may not enforce its stated maximum.
-Action: submit weight = 101 where discovery found max=100 on the frontend.
-Observation: save succeeds (HTTP 201).
-Investigation: inspect request payload, response, and backend source —
-  frontend has max=100, backend has no corresponding validation.
-Classification: CONFIRMED DEFECT (see references/defect-classification.md).
-```
+**Before EACH test, you MUST:**
+1. State your hypothesis clearly
+2. Explain WHY you think this might be a bug
+3. Reference the source code or DOM structure that led to this hypothesis
+
+**During EACH test, you MUST:**
+1. Use the minimum steps needed to test the hypothesis
+2. Capture screenshots at key points
+3. Monitor network requests for unexpected API calls
+4. Check console for errors
+
+**After EACH test, you MUST:**
+1. State what actually happened
+2. Compare to expected behavior
+3. If anomaly: investigate root cause before classifying
+
+**After EACH CRUD operation (create/update/delete), you MUST:**
+1. Verify UI updated SYNCHRONOUSLY (without refresh)
+2. If UI did NOT update automatically → CONFIRMED DEFECT
+3. Document the refresh requirement as a bug
+4. Take screenshot before and after to prove the issue
+
+**CRUD Test Data Rules (MANDATORY):**
+1. Create test data with UNIQUE identifier: `TEST_<feature>_<timestamp>_<sequence>`
+   - Example: `TEST_template_202608272250_001`
+2. NEVER use existing production/test data for destructive tests
+3. After test completes, DELETE all test data you created
+4. Verify deletion in UI AND via API/database if possible
+5. Final cleanup step: list all created data and confirm deletion
+6. If cleanup fails, document which records remain and why
 
 Reuse whatever execution tooling Phase 1 found in the repo. Do not build new
 test infrastructure to answer a single hypothesis — use the fastest tool
@@ -240,12 +445,7 @@ a browser devtools check).
 
 **Headed vs. headless:** if a human is actively watching this run
 (an interactive/live session), run headed — they should be able to see
-what's happening, not just read a transcript afterward. For a large
-unattended/background run nobody's watching in real time, headless is
-faster and that speed matters more than visibility nobody's using. If the
-target's config already picks one (many default headed locally, headless
-in CI), that default is usually right for the context it was written
-for — override it when the run's actual context doesn't match.
+what's happening, not just read a transcript afterward.
 
 **Cross-browser:** for rendering/layout/JS-engine-related findings, apply
 `references/test-design-techniques.md`'s Cross-Browser Verification
@@ -255,24 +455,45 @@ technique before finalizing classification.
 
 For every suspicious or confirmed finding, produce actual evidence files
 per `references/evidence-capture.md` — not a description of what you saw,
-a saved screenshot/network dump/console log at a real path. Capture: repro
-steps, exact input values, expected vs. actual result, screenshot, **video
-or trace recording of the reproduction if the execution tool supports it**
-(check during Phase 1 whether video/trace capture is enabled in the
-target's test config — e.g. Playwright's `use.video`/`use.trace`), console
-errors, the actual network request/response (status, payload), and the
-source file/line responsible. Never report a defect from an assertion
-failure alone — Phase 4's investigation step is mandatory first.
+a saved screenshot/network dump/console log at a real path.
 
-**If video/trace capture is supported by the execution tool but currently
-disabled**, ask the user about it as soon as you find that out in Phase 1
-— before running scenarios, not as a footnote in the final report. Tell
-them what's off, what enabling it would cost (slower/heavier test runs,
-extra disk use), and let them decide whether to enable it for this run. If
-they say yes, enable it in the config yourself before proceeding. If they
-say no or don't respond in time, proceed without it and still note the gap
-in the report's Environment/Automation Issues section — asking doesn't
-replace flagging, it comes first.
+**Required evidence for EVERY finding:**
+1. **Screenshot** — before action, during action, after action
+2. **Network request/response** — exact URL, method, status, payload
+3. **Console output** — any errors or warnings
+4. **DOM snapshot** — relevant HTML structure
+5. **Reproduction steps** — exact steps to reproduce the issue
+6. **Expected vs. actual** — what should happen vs. what did happen
+
+**If video/trace capture is supported** (Playwright's `use.video`/`use.trace`),
+enable it and include the recording. For Playwright:
+```typescript
+// In your test config
+use: {
+  video: 'on',
+  trace: 'on',
+}
+```
+
+**Save evidence to organized directories:**
+```
+test-results/
+├── <test-name>/
+│   ├── screenshots/
+│   │   ├── 01-before-action.png
+│   │   ├── 02-during-action.png
+│   │   └── 03-after-action.png
+│   ├── network/
+│   │   ├── request.json
+│   │   └── response.json
+│   ├── console/
+│   │   └── output.txt
+│   └── trace/
+│       └── trace.zip
+```
+
+Never report a defect from an assertion failure alone — Phase 4's
+investigation step is mandatory first.
 
 ## Phase 6 — Defect classification
 
@@ -283,30 +504,68 @@ confirmed defect. If no confident oracle can be established, classify as
 "Potential Defect / Behavior Requiring Clarification" — never assert it as
 confirmed.
 
+**Classification levels:**
+- **CONFIRMED DEFECT** — clear evidence of incorrect behavior
+- **POTENTIAL DEFECT** — suspicious behavior, needs clarification
+- **BEHAVIOR REQUIRING CLARIFICATION** — unusual but might be intentional
+- **TEST GAP** — functionality not tested, needs coverage
+- **NOT A DEFECT** — behavior is correct, just unexpected
+
 **Regression lock-in:** finding a defect once is half the job. For every
 CONFIRMED DEFECT, if there's an execution tool and existing test suite to
-add to (Phase 1 already found this), ask the user whether to add a
-permanent regression test for it now, following the target's existing
-test conventions and naming (the same execution-detail companion skill/
-convention Phase 1 uses for mechanics). If they say yes, write it there.
-If they say no, or there's no suite to add to, note that explicitly in
-the report — don't let a confirmed defect silently have no path back to
-verifying it stays fixed.
+add to, ask the user whether to add a permanent regression test for it now.
 
 ## Phase 7 — Report
 
-Write the report using `references/report-template.md`. Every CONFIRMED
-DEFECT (and any POTENTIAL DEFECT worth filing early) gets formatted as a
-paste-ready ticket per `references/jira-ticket-template.md` — TEST SET ID/
-TEST CASE ID, Title, 📋 Steps to Reproduce, 🖼️ Actual Result,
-🎯 Expected Result, 📎 Ekler/Attachments — not a plain prose paragraph.
-This is the standard per-defect output format; use it every time, not
-only when asked. The Ekler section lists exactly the files Phase 5
-actually wrote — don't reference an evidence file that doesn't exist. Save the
-report to the target repo at `docs/qa-reports/YYYY-MM-DD-<module>.md` so
-it's git-trackable and linkable from a PR. Also give a short summary in
-your response — don't make the user open the file to learn whether
-anything critical was found.
+**Write a comprehensive report** using `references/report-template.md`.
+
+**Required sections:**
+1. **Executive Summary** — total tests run, defects found, critical issues
+2. **Test Coverage** — what was tested, what was not tested and why
+3. **Defect Details** — for each defect:
+   - ID, title, severity, status
+   - Steps to reproduce (exact, numbered)
+   - Expected result
+   - Actual result
+   - Evidence files (screenshots, network logs, videos)
+   - Source code reference (file:line if applicable)
+4. **Test Environment** — browser, OS, test account, special conditions
+5. **Recommendations** — what to fix first, what to investigate further
+
+**Every CONFIRMED DEFECT** gets formatted as a paste-ready ticket per
+`references/jira-ticket-template.md` — TEST SET ID/TEST CASE ID, Title,
+📋 Steps to Reproduce, 🖼️ Actual Result, 🎯 Expected Result,
+📎 Ekler/Attachments — not a plain prose paragraph.
+
+**Save the report** to the target repo at `docs/qa-reports/YYYY-MM-DD-<module>.md`
+so it's git-trackable and linkable from a PR.
+
+**Give a short summary** in your response — don't make the user open the
+file to learn whether anything critical was found.
+
+## Test Organization
+
+**When starting a new test session:**
+1. Check if `test-results/` directory exists from previous runs
+2. If it exists, ask the user: "Previous test results found. Should I
+   delete them and start fresh, or keep them and add new results?"
+3. If no user preference, delete old results and create fresh directory
+4. Create organized subdirectories for the current test:
+   ```
+   test-results/
+   ├── <test-name>-<date>/
+   │   ├── screenshots/
+   │   ├── network/
+   │   ├── console/
+   │   ├── trace/
+   │   └── reports/
+   ```
+
+**When test is complete:**
+1. Save all evidence to the organized directory
+2. Save the report to `docs/qa-reports/`
+3. Provide a summary with links to evidence files
+4. Offer to create Jira tickets for confirmed defects
 
 ## Invocation
 
@@ -320,48 +579,82 @@ exploratory pass on the wrong feature wastes the whole pipeline.
 ## Completion checklist
 
 - [ ] Phase 1 discovery done before any scenario was written.
-- [ ] Every mutation traces back to something found in source/API/DB, not a
-      generic list applied blindly.
+- [ ] ALL reference files read before designing tests.
+- [ ] Source code traced for complete data flow.
+- [ ] DOM structure analyzed and documented.
+- [ ] Every mutation traces back to something found in source/API/DB.
 - [ ] Every finding went through hypothesis → action → observation →
       investigation before classification.
-- [ ] No defect reported on assertion failure alone — root cause
-      investigated.
-- [ ] Every confirmed defect has the evidence fields
-      `references/defect-classification.md` requires.
-- [ ] Every confirmed/filed defect is formatted per
-      `references/jira-ticket-template.md`, not plain prose.
-- [ ] Oracle used is stated for each finding; low-confidence findings are
-      labeled "Behavior Requiring Clarification," not asserted as bugs.
-- [ ] Every write-capable scenario checked persistence independently of the
-      UI's own success signal (`references/critical-defect-patterns.md`).
-- [ ] Execution-path gaps (no reachable simulator/emulator, video/trace
-      disabled, etc.) are stated explicitly, not silently absorbed into a
-      quieter pass.
-- [ ] If no execution tooling existed at all, a minimal one was
-      provisioned before falling back to manual-only checking (or the
-      report says explicitly why that wasn't possible).
-- [ ] Shared/library entities got their consumer surfaces mapped and the
-      created/edited/deleted/deactivated matrix run
-      (`references/impact-analysis.md`), or the entity was confirmed leaf.
-- [ ] Every evidence reference in a ticket points to a file that was
-      actually written (`references/evidence-capture.md`), not a
-      described-but-not-saved artifact passed off as one.
-- [ ] Every screen got an accessibility pass
-      (`references/accessibility-checks.md`).
-- [ ] DB-level verification was used where a connection was already
-      available, not just API/UI re-fetch (`references/database-verification.md`).
-- [ ] Multi-language apps got i18n checks (`references/i18n-checks.md`);
-      single-language apps correctly skipped them.
-- [ ] Observational security hygiene applied to normal traffic
-      (`references/security-hygiene.md`) — no attack payloads, no
-      exploitation attempts.
+- [ ] No defect reported on assertion failure alone.
+- [ ] Every confirmed defect has required evidence fields.
+- [ ] Every confirmed/filed defect is formatted per jira-ticket-template.md.
+- [ ] Oracle used is stated for each finding.
+- [ ] Every write-capable scenario checked persistence independently.
 - [ ] Empty form submission test run on all forms.
 - [ ] Existing data collision test run where DB access available.
-- [ ] Type confusion tests run (wrong data types in wrong fields).
+- [ ] Type confusion tests run.
 - [ ] API contract violation tests run.
 - [ ] Concurrent access/race condition tests run for write operations.
 - [ ] Copy-paste and Unicode edge case tests run.
 - [ ] Browser navigation (back/forward/refresh) tests run.
-- [ ] Every CONFIRMED DEFECT got a regression-lock-in offer, and the
-      outcome (added / declined / no suite to add to) is in the report.
+- [ ] Search-specific tests run (case sensitivity, partial match, debounce).
+- [ ] Date filter tests run (invalid ranges, boundary values).
+- [ ] Multi-language tests run if applicable.
+- [ ] SYNCHRONOUS UI UPDATE verified for all CRUD operations.
+- [ ] If UI required refresh → documented as DEFECT.
+- [ ] Test data created with unique identifiers.
+- [ ] ALL test data cleaned up after tests complete.
+- [ ] System state verified same as before testing.
+- [ ] Cleanup verified in UI AND via API/database.
+- [ ] Evidence files organized and saved.
+- [ ] Evidence files organized and saved.
 - [ ] Report written to `docs/qa-reports/` and summarized in-conversation.
+- [ ] Regression lock-in offer made for confirmed defects.
+- [ ] Test results organized in proper directory structure.
+
+## 🚨 MANDATORY SELF-AUDIT (Before Submitting Results)
+
+**You MUST complete this audit before submitting ANY test results.**
+
+### Critical Questions (Answer YES or NO)
+
+1. **Did I read ALL reference files before designing tests?** YES/NO
+   - If NO: STOP. Go read them now.
+
+2. **Did I create NEW test data (not use existing production data)?** YES/NO
+   - If NO: STOP. Your test results are INVALID.
+
+3. **Did I clean up ALL created test data?** YES/NO
+   - If NO: STOP. Clean up now before submitting.
+
+4. **Did I verify SYNCHRONOUS UI updates for CRUD operations?** YES/NO
+   - If NO: STOP. Test this now.
+
+5. **If UI required refresh, did I document it as a DEFECT?** YES/NO
+   - If NO: STOP. Document it now.
+
+6. **Did I capture evidence (screenshots, network, console) for each finding?** YES/NO
+   - If NO: STOP. Capture evidence now.
+
+7. **Is the system in the SAME state as before testing?** YES/NO
+   - If NO: STOP. Fix the state.
+
+### Compliance Report
+
+Write this to your final report:
+
+```
+ENFORCEMENT COMPLIANCE REPORT
+==============================
+Reference files read: [YES/NO]
+Test data hygiene followed: [YES/NO]
+Synchronous UI verified: [YES/NO]
+Cleanup completed: [YES/NO]
+Evidence captured: [YES/NO]
+
+COMPLIANCE STATUS: [COMPLIANT / NON-COMPLIANT]
+If NON-COMPLIANT, explain why and what was done to fix it.
+```
+
+**If you cannot answer YES to all critical questions, you MUST fix the issue before submitting results.**
+

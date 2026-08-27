@@ -1,0 +1,354 @@
+# Exploratory QA Report
+
+**Target:** https://example.com
+**Date:** 2026-08-26
+**Execution Time:** 8.85s
+**Browser:** Chromium (Playwright) - Headed Mode
+**Viewport:** 1920x1080
+**Video Recording:** C:\Users\musta\Desktop\Sn-QA-Bug-Hunter\agent\evidence\videos\page@8c79686d8302bdd58ea05ced866fb5b6.webm
+
+---
+
+## 1. Executive Summary
+
+| Metric | Value |
+|--------|-------|
+| Total Tests | 16 |
+| ✅ Passed | 8 |
+| ❌ Failed | 0 |
+| ⚠️ Warnings | 8 |
+| Success Rate | 50.0% |
+
+---
+
+## 2. Page Analysis
+
+| Property | Value |
+|----------|-------|
+| Title | Example Domain |
+| URL | https://example.com/ |
+| Total Elements | 12 |
+| Visible Elements | 7 |
+
+### DOM Breakdown
+
+| Component | Total | Visible |
+|-----------|-------|---------|
+| Input Fields | 0 | 0 |
+| Buttons | 0 | 0 |
+| Links | 1 | 1 |
+| Images | 0 | 0 |
+| Forms | 0 | 0 |
+
+---
+
+## 3. Test Results
+
+### ⚠️ SEC-001: WARNING
+
+**Test Name:** SEC-001
+**Status:** WARNING
+
+
+**Description:**
+Search box not found - skipping XSS test
+
+---
+
+### ⚠️ SEC-002: WARNING
+
+**Test Name:** SEC-002
+**Status:** WARNING
+
+
+**Description:**
+Search box not found - skipping SQL injection test
+
+---
+
+### ⚠️ SEC-003: WARNING
+
+**Test Name:** SEC-003
+**Status:** WARNING
+
+
+**Description:**
+Search box not found - skipping HTML injection test
+
+---
+
+### ⚠️ INPUT-001: WARNING
+
+**Test Name:** INPUT-001
+**Status:** WARNING
+
+
+**Description:**
+Search box or button not found
+
+---
+
+### ⚠️ INPUT-002: WARNING
+
+**Test Name:** INPUT-002
+**Status:** WARNING
+
+
+**Description:**
+Search box not found
+
+---
+
+### ⚠️ INPUT-003: WARNING
+
+**Test Name:** INPUT-003
+**Status:** WARNING
+
+
+**Description:**
+Search box not found
+
+---
+
+### ⚠️ INPUT-004: WARNING
+
+**Test Name:** INPUT-004
+**Status:** WARNING
+
+
+**Description:**
+Search box not found
+
+---
+
+### ⚠️ INPUT-005: WARNING
+
+**Test Name:** INPUT-005
+**Status:** WARNING
+
+
+**Description:**
+Search box not found
+
+---
+
+### ✅ RESP-001: PASS
+
+**Test Name:** RESP-001
+**Status:** PASS
+
+
+**Description:**
+Mobile layout looks good
+
+**Technical Details:**
+```json
+{
+  "hasOverflow": false,
+  "outsideElements": 0,
+  "hasViewportMeta": true
+}
+```
+
+**Evidence:**
+- 📸 evidence/responsive-mobile-1787781920882.png
+
+---
+
+### ✅ RESP-002: PASS
+
+**Test Name:** RESP-002
+**Status:** PASS
+
+
+**Description:**
+Tablet layout looks good
+
+**Technical Details:**
+```json
+{
+  "hasOverflow": false,
+  "outsideElements": 0
+}
+```
+
+**Evidence:**
+- 📸 evidence/responsive-tablet-1787781921951.png
+
+---
+
+### ✅ RESP-003: PASS
+
+**Test Name:** RESP-003
+**Status:** PASS
+
+
+**Description:**
+Desktop layout looks good
+
+**Technical Details:**
+```json
+{
+  "hasOverflow": false
+}
+```
+
+**Evidence:**
+- 📸 evidence/responsive-desktop-1787781923055.png
+
+---
+
+### ✅ A11Y-001: PASS [LOW]
+
+**Test Name:** A11Y-001
+**Status:** PASS
+**Severity:** LOW
+
+**Description:**
+All visible images have alt text
+
+**Technical Details:**
+```json
+{
+  "totalVisible": 0,
+  "missingAlt": 0
+}
+```
+
+**Evidence:**
+- 📸 evidence/a11y-images-1787781923110.png
+
+---
+
+### ✅ A11Y-002: PASS [LOW]
+
+**Test Name:** A11Y-002
+**Status:** PASS
+**Severity:** LOW
+
+**Description:**
+All visible form inputs have labels
+
+**Technical Details:**
+```json
+{
+  "totalVisible": 0,
+  "missingLabels": 0
+}
+```
+
+**Evidence:**
+- 📸 evidence/a11y-labels-1787781923181.png
+
+---
+
+### ✅ A11Y-003: PASS [LOW]
+
+**Test Name:** A11Y-003
+**Status:** PASS
+**Severity:** LOW
+
+**Description:**
+Heading hierarchy looks good
+
+**Technical Details:**
+```json
+{
+  "headings": [
+    {
+      "level": 1,
+      "text": "Example Domain"
+    }
+  ],
+  "hasH1": true,
+  "skippedLevels": false,
+  "multipleH1s": false
+}
+```
+
+**Evidence:**
+- 📸 evidence/a11y-headings-1787781923266.png
+
+---
+
+### ✅ NAV-001: PASS [LOW]
+
+**Test Name:** NAV-001
+**Status:** PASS
+**Severity:** LOW
+
+**Description:**
+All 1 internal links working
+
+**Technical Details:**
+```json
+{
+  "totalChecked": 1,
+  "brokenLinks": 0,
+  "brokenDetails": []
+}
+```
+
+**Evidence:**
+- 📸 evidence/nav-links-1787781923349.png
+
+---
+
+### ✅ NAV-002: PASS
+
+**Test Name:** NAV-002
+**Status:** PASS
+
+
+**Description:**
+No console errors (0 warnings)
+
+**Technical Details:**
+```json
+{
+  "errors": [],
+  "warnings": []
+}
+```
+
+**Evidence:**
+- 📸 evidence/nav-console-1787781926524.png
+
+---
+
+## 4. Findings Summary
+
+### Critical Issues (0)
+None
+
+### High Severity (0)
+None
+
+### Medium Severity (0)
+None
+
+### Low Severity (0)
+None
+
+---
+
+## 5. Recommendations
+
+### Best Practices
+- Implement automated regression tests for found issues
+- Add security headers and input validation
+- Ensure responsive design across all viewports
+- Follow WCAG 2.1 accessibility guidelines
+- Regular security audits recommended
+
+---
+
+## 6. Evidence Files
+
+Evidence files are saved in: `evidence/`
+Video recording: C:\Users\musta\Desktop\Sn-QA-Bug-Hunter\agent\evidence\videos\page@8c79686d8302bdd58ea05ced866fb5b6.webm
+
+---
+
+*Report generated by QA Bug Hunter Agent*
+*Test Methodology: Exploratory Testing (Session-Based)*
