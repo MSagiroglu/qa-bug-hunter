@@ -1,0 +1,4 @@
+# One origin per line. Copy to targets.allow (NOT committed) and edit.
+# Never add a production host. Deny patterns go in targets.deny, written by the user.
+https://app.example.test
+https://stage.example.test

@@ -20,6 +20,8 @@ export interface Ticket {
   evidence: string[];
   category: string;
   components: string[];
+  oracle: string;
+  confidence: 'high' | 'medium' | 'low';
 }
 
 export class TicketGenerator {
@@ -78,6 +80,8 @@ export class TicketGenerator {
       evidence: [...result.evidence, ...(videoPath ? [videoPath] : [])],
       category: this.mapTestToCategory(result.testCaseId),
       components: this.mapTestToComponents(result.testCaseId),
+      oracle: result.oracle ?? 'unspecified (test did not record what observation decided the verdict)',
+      confidence: result.confidence ?? 'low',
     };
   }
 
@@ -216,6 +220,7 @@ export class TicketGenerator {
     let formatted = `## ${ticket.id}\n\n`;
     formatted += `**Title:** ${ticket.title}\n\n`;
     formatted += `**Severity:** ${ticket.severity.toUpperCase()} | **Priority:** ${ticket.priority}\n\n`;
+    formatted += `**Oracle:** ${ticket.oracle} | **Confidence:** ${ticket.confidence.toUpperCase()}\n\n`;
     formatted += `**Category:** ${ticket.category}\n\n`;
     formatted += `**Components:** ${ticket.components.join(', ')}\n\n`;
     formatted += `---\n\n`;
@@ -262,7 +267,8 @@ export class TicketGenerator {
     jira += `Priority: ${this.mapSeverityToJira(ticket.severity)}\n`;
     jira += `Issue Type: Bug\n`;
     jira += `Component: ${ticket.components.join(', ')}\n`;
-    jira += `Labels: exploratory-testing, automated\n\n`;
+    jira += `Labels: exploratory-testing, automated, confidence-${ticket.confidence}\n`;
+    jira += `Oracle: ${ticket.oracle}\n\n`;
     jira += `h3. Description\n\n`;
     jira += `{noformat}\n`;
     jira += ticket.description;

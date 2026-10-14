@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Selftest: bad modal</title>
+<!-- Deliberately broken. Defects: no role/aria-modal/name (OV1), no focus move in (OV2),
+     no scroll lock (OV6), no ESC (OV4), no focus trap (OV3), close is a non-focusable div
+     placed outside the viewport at 320px (OV7), every click appends another instance (OV10). -->
+<style>
+  body { margin: 0; font-family: sans-serif; }
+  .tall { min-height: 3000px; padding: 16px; }
+  .modal { position: fixed; top: 40px; left: 20px; width: 500px; height: 200px; background: #fff; border: 2px solid #333; padding: 16px; }
+  .modal .x { position: absolute; top: 4px; left: 460px; width: 30px; height: 30px; background: #ccc; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="tall">
+  <h1>Bad modal demo</h1>
+  <button id="open-btn" type="button">Open dialog</button>
+  <p>Scroll filler below.</p>
+</div>
+<script>
+  document.getElementById('open-btn').addEventListener('click', function () {
+    var m = document.createElement('div');
+    m.className = 'modal';
+    m.innerHTML = '<div class="x" id="close-btn">x</div><h2>Example</h2><input type="text"><button type="button">OK</button>';
+    document.body.appendChild(m);
+    m.querySelector('.x').addEventListener('click', function () { m.remove(); });
+  });
+</script>
+</body>
+</html>

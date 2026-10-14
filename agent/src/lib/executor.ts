@@ -1,4 +1,7 @@
-import { Page } from 'playwright';
+import { Page, Locator, request as playwrightRequest } from 'playwright';
+import type { NetworkRecord } from './browser.js';
+import { discoverOverlays, runOverlayInvariants, type InvariantResult } from './overlay.js';
+import { runRapidSuite } from './rapid.js';
 import { EventEmitter } from 'events';
 
 export interface TestCase {
@@ -11,10 +14,14 @@ export interface TestCase {
 
 export interface TestResult {
   testCaseId: string;
-  status: 'pass' | 'fail' | 'warning';
+  status: 'pass' | 'fail' | 'warning' | 'skipped';
   message: string;
   evidence: string[];
   severity?: 'critical' | 'high' | 'medium' | 'low';
+  /** What observation decided this verdict (e.g. 'dialog event', 'keyword match in page text'). */
+  oracle?: string;
+  /** How much the oracle can be trusted for this verdict. */
+  confidence?: 'high' | 'medium' | 'low';
   details?: any;
 }
 
@@ -98,6 +105,64 @@ export class TestExecutor extends EventEmitter {
   }
 }
 
+
+// ============================================================
+// GENERIC SEARCH-TARGET DISCOVERY (no site-specific selectors)
+// ============================================================
+export interface SearchTarget {
+  searchBox: Locator;
+  searchButton: Locator | null;
+}
+
+/** Find a visible search input (role/type/placeholder) and, if present, its submit control. */
+export async function findSearchTarget(page: Page): Promise<SearchTarget | null> {
+  const inputCandidates: Locator[] = [
+    page.getByRole('searchbox'),
+    page.locator('input[type="search"]'),
+    page.getByPlaceholder(/search|find|ara|arama/i),
+    page.locator('input[name="q"], input[name="query"], input[name="search"], input[name="s"]'),
+  ];
+  let searchBox: Locator | null = null;
+  for (const c of inputCandidates) {
+    const n = await c.count().catch(() => 0);
+    for (let i = 0; i < Math.min(n, 5); i++) {
+      const el = c.nth(i);
+      if (await el.isVisible().catch(() => false)) { searchBox = el; break; }
+    }
+    if (searchBox) break;
+  }
+  if (!searchBox) return null;
+
+  // Prefer a submit control inside the same form; fall back to a role=button named search.
+  const form = page.locator('form').filter({ has: searchBox }).first();
+  const buttonCandidates: Locator[] = [
+    form.locator('button[type="submit"], input[type="submit"]'),
+    form.getByRole('button', { name: /search|find|go|ara/i }),
+    page.getByRole('button', { name: /search|find|ara/i }),
+  ];
+  let searchButton: Locator | null = null;
+  for (const c of buttonCandidates) {
+    const first = c.first();
+    if (await first.isVisible().catch(() => false)) { searchButton = first; break; }
+  }
+  return { searchBox, searchButton };
+}
+
+/** Submit via the discovered button, or Enter in the input when the page has no explicit button. */
+async function submitSearch(t: SearchTarget): Promise<void> {
+  if (t.searchButton) await t.searchButton.click();
+  else await t.searchBox.press('Enter');
+}
+
+function skipNoTarget(testCaseId: string): TestResult {
+  return {
+    testCaseId,
+    status: 'skipped',
+    message: 'skipped: no target element (no search input found by role/type/placeholder; this suite may need per-site selector configuration)',
+    evidence: [],
+  };
+}
+
 // ============================================================
 // IMPROVED SECURITY TEST SUITE
 // ============================================================
@@ -124,25 +189,19 @@ export function createSecurityTestSuite(): TestSuite {
             '<details open ontoggle=alert("XSS")>',
           ];
 
-              const searchBox = page.locator('#twotabsearchtextbox');
-              const searchButton = page.locator('#nav-search-submit-button');
+              const target = await findSearchTarget(page);
+              if (!target) return skipNoTarget('SEC-001');
+              const { searchBox } = target;
 
-              if (!(await searchBox.isVisible())) {
-                return {
-                  testCaseId: 'SEC-001',
-                  status: 'warning',
-                  message: 'Search box not found - skipping XSS test',
-                  evidence: [],
-                };
-              }
-
-              let xssDetected = false;
+              let xssExecuted = false;
+              let xssReflected = false;
               const evidence: string[] = [];
               const xssIndicators: string[] = [];
+              const reflectedPayloads: string[] = [];
 
               // Listen for dialogs (XSS indicator)
               page.on('dialog', async dialog => {
-                xssDetected = true;
+                xssExecuted = true;
                 xssIndicators.push(`Dialog appeared: ${dialog.message()}`);
                 await dialog.dismiss();
               });
@@ -151,7 +210,7 @@ export function createSecurityTestSuite(): TestSuite {
                 try {
                   await searchBox.fill('');
                   await searchBox.fill(payload);
-                  await searchButton.click();
+                  await submitSearch(target);
                   await page.waitForTimeout(2000);
 
                   // Check if payload appears in DOM (reflected XSS)
@@ -164,9 +223,12 @@ export function createSecurityTestSuite(): TestSuite {
                     return (window as any).__xss_executed === true;
                   });
 
-                  if (payloadInDOM || scriptExecuted) {
-                    xssDetected = true;
-                    xssIndicators.push(`Payload reflected in DOM: ${payload.substring(0, 50)}`);
+                  if (scriptExecuted) {
+                    xssExecuted = true;
+                    xssIndicators.push(`__xss_executed flag set after: ${payload.substring(0, 50)}`);
+                  } else if (payloadInDOM) {
+                    xssReflected = true;
+                    reflectedPayloads.push(payload.substring(0, 50));
                   }
 
                   const screenshotPath = `evidence/xss-${Date.now()}.png`;
@@ -180,14 +242,35 @@ export function createSecurityTestSuite(): TestSuite {
                 }
               }
 
+              // Only execution (dialog / __xss_executed) is proof; reflection alone is a warning.
+              if (xssExecuted) {
+                return {
+                  testCaseId: 'SEC-001',
+                  status: 'fail',
+                  message: `XSS executed: ${xssIndicators.join('; ')}`,
+                  evidence,
+                  severity: 'critical',
+                  oracle: 'dialog event or __xss_executed flag observed after payload submission',
+                  confidence: 'high',
+                };
+              }
+              if (xssReflected) {
+                return {
+                  testCaseId: 'SEC-001',
+                  status: 'warning',
+                  message: `reflected, execution not proven (${reflectedPayloads.length} payload(s) present unescaped in DOM; verify manually)`,
+                  evidence,
+                  oracle: 'raw payload string found in document.body.innerHTML (reflection only; no dialog, no execution flag)',
+                  confidence: 'low',
+                };
+              }
               return {
                 testCaseId: 'SEC-001',
-                status: xssDetected ? 'fail' : 'pass',
-                message: xssDetected
-                  ? `XSS vulnerability detected! ${xssIndicators.join('; ')}`
-                  : `No XSS vulnerabilities found (${payloads.length} payloads tested)`,
+                status: 'pass',
+                message: `No XSS execution or reflection observed (${payloads.length} payloads tested)`,
                 evidence,
-                severity: xssDetected ? 'critical' : undefined,
+                oracle: 'no dialog, no __xss_executed flag, no raw reflection',
+                confidence: 'medium',
               };
         },
       },
@@ -210,17 +293,9 @@ export function createSecurityTestSuite(): TestSuite {
             "1' UNION SELECT NULL,NULL,NULL--",
           ];
 
-              const searchBox = page.locator('#twotabsearchtextbox');
-              const searchButton = page.locator('#nav-search-submit-button');
-
-              if (!(await searchBox.isVisible())) {
-                return {
-                  testCaseId: 'SEC-002',
-                  status: 'warning',
-                  message: 'Search box not found - skipping SQL injection test',
-                  evidence: [],
-                };
-              }
+              const target = await findSearchTarget(page);
+              if (!target) return skipNoTarget('SEC-002');
+              const { searchBox } = target;
 
               const evidence: string[] = [];
               let sqlErrorDetected = false;
@@ -239,7 +314,7 @@ export function createSecurityTestSuite(): TestSuite {
                 try {
                   await searchBox.fill('');
                   await searchBox.fill(payload);
-                  await searchButton.click();
+                  await submitSearch(target);
                   await page.waitForTimeout(2000);
 
                   // Check page content for SQL errors
@@ -279,6 +354,8 @@ export function createSecurityTestSuite(): TestSuite {
                   : `No SQL injection vulnerabilities found (${payloads.length} payloads tested)`,
                 evidence,
                 severity: sqlErrorDetected ? 'critical' : undefined,
+                oracle: 'keyword match (e.g. sql, error, query) in visible page text',
+                confidence: 'low',
               };
         },
       },
@@ -299,17 +376,9 @@ export function createSecurityTestSuite(): TestSuite {
             '<form action="http://evil.com"><input type="submit">',
           ];
 
-              const searchBox = page.locator('#twotabsearchtextbox');
-              const searchButton = page.locator('#nav-search-submit-button');
-
-              if (!(await searchBox.isVisible())) {
-                return {
-                  testCaseId: 'SEC-003',
-                  status: 'warning',
-                  message: 'Search box not found - skipping HTML injection test',
-                  evidence: [],
-                };
-              }
+              const target = await findSearchTarget(page);
+              if (!target) return skipNoTarget('SEC-003');
+              const { searchBox } = target;
 
               const evidence: string[] = [];
               let htmlInjected = false;
@@ -319,7 +388,7 @@ export function createSecurityTestSuite(): TestSuite {
                 try {
                   await searchBox.fill('');
                   await searchBox.fill(payload);
-                  await searchButton.click();
+                  await submitSearch(target);
                   await page.waitForTimeout(2000);
 
                   // Check if HTML was rendered
@@ -365,6 +434,8 @@ export function createSecurityTestSuite(): TestSuite {
                   : `No HTML injection vulnerabilities found (${payloads.length} payloads tested)`,
                 evidence,
                 severity: htmlInjected ? 'high' : undefined,
+                oracle: 'raw payload string present in document.body.innerHTML, or external resource element injected',
+                confidence: 'medium',
               };
         },
       },
@@ -385,17 +456,9 @@ export function createInputTestSuite(): TestSuite {
         category: 'input',
         description: 'Test form submission with empty fields and check backend response',
         execute: async (page: Page): Promise<TestResult> => {
-          const searchBox = page.locator('#twotabsearchtextbox');
-          const searchButton = page.locator('#nav-search-submit-button');
-
-              if (!(await searchBox.isVisible()) || !(await searchButton.isVisible())) {
-                return {
-                  testCaseId: 'INPUT-001',
-                  status: 'warning',
-                  message: 'Search box or button not found',
-                  evidence: [],
-                };
-              }
+          const target = await findSearchTarget(page);
+              if (!target) return skipNoTarget('INPUT-001');
+              const { searchBox } = target;
 
               const evidence: string[] = [];
               let backendError = false;
@@ -413,7 +476,7 @@ export function createInputTestSuite(): TestSuite {
 
               // Try empty submission
               await searchBox.fill('');
-              await searchButton.click();
+              await submitSearch(target);
               await page.waitForTimeout(3000);
 
               // Check for backend errors (5xx)
@@ -459,17 +522,9 @@ export function createInputTestSuite(): TestSuite {
         category: 'input',
         description: 'Test with very long string input and check for crashes',
         execute: async (page: Page): Promise<TestResult> => {
-          const searchBox = page.locator('#twotabsearchtextbox');
-          const searchButton = page.locator('#nav-search-submit-button');
-
-              if (!(await searchBox.isVisible())) {
-                return {
-                  testCaseId: 'INPUT-002',
-                  status: 'warning',
-                  message: 'Search box not found',
-                  evidence: [],
-                };
-              }
+          const target = await findSearchTarget(page);
+              if (!target) return skipNoTarget('INPUT-002');
+              const { searchBox } = target;
 
               const evidence: string[] = [];
               let backendCrash = false;
@@ -491,7 +546,7 @@ export function createInputTestSuite(): TestSuite {
                   const longString = 'A'.repeat(length);
                   await searchBox.fill('');
                   await searchBox.fill(longString);
-                  await searchButton.click();
+                  await submitSearch(target);
                   await page.waitForTimeout(2000);
 
                   // Check for 500 errors
@@ -537,17 +592,9 @@ export function createInputTestSuite(): TestSuite {
         category: 'input',
         description: 'Test with special characters and check for injection',
         execute: async (page: Page): Promise<TestResult> => {
-          const searchBox = page.locator('#twotabsearchtextbox');
-          const searchButton = page.locator('#nav-search-submit-button');
-
-              if (!(await searchBox.isVisible())) {
-                return {
-                  testCaseId: 'INPUT-003',
-                  status: 'warning',
-                  message: 'Search box not found',
-                  evidence: [],
-                };
-              }
+          const target = await findSearchTarget(page);
+              if (!target) return skipNoTarget('INPUT-003');
+              const { searchBox } = target;
 
               const evidence: string[] = [];
               let issuesFound = false;
@@ -569,7 +616,7 @@ export function createInputTestSuite(): TestSuite {
                 try {
                   await searchBox.fill('');
                   await searchBox.fill(chars);
-                  await searchButton.click();
+                  await submitSearch(target);
                   await page.waitForTimeout(2000);
 
                   // Check for XSS reflection
@@ -610,17 +657,9 @@ export function createInputTestSuite(): TestSuite {
         category: 'input',
         description: 'Test with Unicode characters and emojis',
         execute: async (page: Page): Promise<TestResult> => {
-          const searchBox = page.locator('#twotabsearchtextbox');
-          const searchButton = page.locator('#nav-search-submit-button');
-
-              if (!(await searchBox.isVisible())) {
-                return {
-                  testCaseId: 'INPUT-004',
-                  status: 'warning',
-                  message: 'Search box not found',
-                  evidence: [],
-                };
-              }
+          const target = await findSearchTarget(page);
+              if (!target) return skipNoTarget('INPUT-004');
+              const { searchBox } = target;
 
               const unicodeStrings = [
                 '🎉🔥💯 問題ない',
@@ -643,7 +682,7 @@ export function createInputTestSuite(): TestSuite {
                 try {
                   await searchBox.fill('');
                   await searchBox.fill(unicode);
-                  await searchButton.click();
+                  await submitSearch(target);
                   await page.waitForTimeout(2000);
 
                   const screenshotPath = `evidence/unicode-${Date.now()}.png`;
@@ -682,17 +721,9 @@ export function createInputTestSuite(): TestSuite {
         category: 'input',
         description: 'Test with incorrect data types in form fields',
         execute: async (page: Page): Promise<TestResult> => {
-          const searchBox = page.locator('#twotabsearchtextbox');
-          const searchButton = page.locator('#nav-search-submit-button');
-
-              if (!(await searchBox.isVisible())) {
-                return {
-                  testCaseId: 'INPUT-005',
-                  status: 'warning',
-                  message: 'Search box not found',
-                  evidence: [],
-                };
-              }
+          const target = await findSearchTarget(page);
+              if (!target) return skipNoTarget('INPUT-005');
+              const { searchBox } = target;
 
               const typeConfusionTests = [
                 '1234567890',
@@ -715,7 +746,7 @@ export function createInputTestSuite(): TestSuite {
                 try {
                   await searchBox.fill('');
                   await searchBox.fill(test);
-                  await searchButton.click();
+                  await submitSearch(target);
                   await page.waitForTimeout(2000);
 
                   const screenshotPath = `evidence/type-confusion-${Date.now()}.png`;
@@ -1194,6 +1225,276 @@ export function createNavigationTestSuite(): TestSuite {
             details: { errors: errors.slice(0, 5), warnings: warnings.slice(0, 5) },
           };
         },
+      },
+    ],
+  };
+}
+
+// ============================================================
+// OVERLAY SUITE (OV invariants, see references/invariants/overlay-dialog.md)
+// ============================================================
+const OV_SEVERITY: Record<string, 'high' | 'medium'> = {
+  OV3: 'high', OV4: 'high', OV7: 'high',
+};
+const SEV_RANK = { low: 0, medium: 1, high: 2, critical: 3 } as const;
+
+export function createOverlaySuite(): TestSuite {
+  return {
+    name: 'Overlay Invariant Tests',
+    testCases: [
+      {
+        id: 'OVL-001',
+        name: 'Dialog invariants (OV1-OV4, OV6, OV7, OV10)',
+        category: 'accessibility',
+        description: 'Detect dialog triggers from the DOM and run the overlay invariants on each',
+        execute: async (page: Page): Promise<TestResult> => {
+          const overlays = await discoverOverlays(page);
+          if (overlays.length === 0) {
+            return {
+              testCaseId: 'OVL-001',
+              status: 'warning',
+              message: 'No dialog triggers detected (role=dialog / aria-modal / modal triggers); overlay checks skipped',
+              evidence: [],
+            };
+          }
+          const perDialog: Array<{ trigger: string; results: InvariantResult[] }> = [];
+          for (const o of overlays) {
+            const results = await runOverlayInvariants(page, {
+              trigger: page.locator(o.triggerSelector).first(),
+              dialog: page.locator(o.dialogSelector).first(),
+              close: o.closeSelector ? page.locator(o.closeSelector).first() : undefined,
+            });
+            perDialog.push({ trigger: o.triggerLabel, results });
+          }
+          const failedIds = new Set<string>();
+          let severity: keyof typeof SEV_RANK = 'low';
+          for (const d of perDialog) {
+            for (const r of d.results) {
+              if (r.pass) continue;
+              failedIds.add(r.id);
+              const sev = OV_SEVERITY[r.id.replace('-restore', '')] ?? 'medium';
+              if (SEV_RANK[sev] > SEV_RANK[severity]) severity = sev;
+            }
+          }
+          const table = perDialog.map(d => ({
+            trigger: d.trigger,
+            results: Object.fromEntries(d.results.map(r => [r.id, r.pass ? 'pass' : 'fail'])),
+            failures: d.results.filter(r => !r.pass).map(r => `${r.id}: ${r.detail ?? ''}`),
+          }));
+          if (failedIds.size === 0) {
+            return {
+              testCaseId: 'OVL-001',
+              status: 'pass',
+              message: `${overlays.length} dialog(s) passed all automated overlay invariants`,
+              evidence: [],
+              details: table,
+            };
+          }
+          return {
+            testCaseId: 'OVL-001',
+            status: 'fail',
+            severity,
+            message: `${overlays.length} dialog(s) tested; violated: ${[...failedIds].sort().join(', ')}`,
+            evidence: [],
+            details: table,
+          };
+        },
+      },
+    ],
+  };
+}
+
+// ============================================================
+// API SUITE (replay of the app's own 2xx writes; run-created only)
+// ============================================================
+const NO_AUTH_STRIP = new Set(['authorization', 'proxy-authorization', 'cookie', 'x-api-key', 'x-auth-token', 'x-access-token']);
+const REPLAY_DROP = new Set(['host', 'content-length', 'connection', 'transfer-encoding', 'cookie']);
+const MAX_REPLAYS = 10;
+
+function hasTestMarker(rec: NetworkRecord): boolean {
+  return !!rec.postData && rec.postData.includes('TEST_');
+}
+
+function hasCredentials(rec: NetworkRecord): boolean {
+  return Object.keys(rec.headers).some(k => NO_AUTH_STRIP.has(k.toLowerCase()));
+}
+
+function sameOrigin(url: string, origin: string): boolean {
+  try { return new URL(url).origin === origin; } catch { return false; }
+}
+
+interface Eligibility {
+  eligible: NetworkRecord[];
+  refused: Array<{ method: string; url: string; reason: string }>;
+}
+
+// Only same-origin writes that were made while the agent was acting, or whose
+// payload carries a TEST_ marker, may be replayed. Everything else is refused.
+function classify(log: NetworkRecord[], origin: string): Eligibility {
+  const seen = new Set<string>();
+  const eligible: NetworkRecord[] = [];
+  const refused: Eligibility['refused'] = [];
+  for (const rec of log) {
+    const key = `${rec.method} ${rec.url} ${rec.postData ?? ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const safeUrl = rec.url.split('?')[0];
+    if (!sameOrigin(rec.url, origin)) {
+      refused.push({ method: rec.method, url: safeUrl, reason: 'not the target origin' });
+    } else if (rec.phase !== 'run' && !hasTestMarker(rec)) {
+      refused.push({ method: rec.method, url: safeUrl, reason: 'not created by this run (no TEST_ marker, made during page load)' });
+    } else if (eligible.length >= MAX_REPLAYS) {
+      refused.push({ method: rec.method, url: safeUrl, reason: `replay cap (${MAX_REPLAYS}) reached` });
+    } else {
+      eligible.push(rec);
+    }
+  }
+  return { eligible, refused };
+}
+
+function replayHeaders(rec: NetworkRecord, stripAuth: boolean): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(rec.headers)) {
+    const lk = k.toLowerCase();
+    if (REPLAY_DROP.has(lk) || lk.startsWith(':')) continue;
+    if (stripAuth && NO_AUTH_STRIP.has(lk)) continue;
+    out[k] = v;
+  }
+  return out;
+}
+
+export function createApiSuite(
+  getLog: () => Promise<NetworkRecord[]>,
+  targetUrl: string,
+): TestSuite {
+  let origin = '';
+  try { origin = new URL(targetUrl).origin; } catch { /* leave empty: nothing is same-origin */ }
+  const label = (r: { method: string; url: string }) => `${r.method} ${r.url.split('?')[0]}`;
+
+  return {
+    name: 'API Write Tests',
+    testCases: [
+      {
+        id: 'API-001',
+        name: 'Duplicate write replay',
+        category: 'security',
+        description: 'Replay run-created 2xx writes once to observe duplicate-write behavior',
+        execute: async (page: Page): Promise<TestResult> => {
+          const { eligible, refused } = classify(await getLog(), origin);
+          if (eligible.length === 0) {
+            return {
+              testCaseId: 'API-001', status: 'warning', evidence: [],
+              message: `No replayable writes (captured but refused: ${refused.length}); nothing was replayed`,
+              details: { refused },
+            };
+          }
+          const rows: Array<Record<string, unknown>> = [];
+          let dupAccepted = 0, serverErrors = 0;
+          for (const rec of eligible) {
+            try {
+              const res = await page.context().request.fetch(rec.url, {
+                method: rec.method, headers: replayHeaders(rec, false),
+                data: rec.postData ?? undefined, failOnStatusCode: false, timeout: 15000,
+              });
+              const s = res.status();
+              const ok = s >= 200 && s < 300;
+              const creating = rec.method === 'POST' || rec.method === 'PATCH';
+              if (s >= 500) serverErrors++;
+              else if (ok && creating) dupAccepted++;
+              rows.push({ request: label(rec), originalStatus: rec.status, replayStatus: s,
+                verdict: s >= 500 ? 'server error' : ok && creating ? 'duplicate accepted' : 'ok' });
+            } catch (e) {
+              rows.push({ request: label(rec), error: (e as Error).message });
+            }
+          }
+          const status = serverErrors > 0 ? 'fail' : dupAccepted > 0 ? 'warning' : 'pass';
+          return {
+            testCaseId: 'API-001', status,
+            severity: serverErrors > 0 ? 'high' : dupAccepted > 0 ? 'medium' : undefined,
+            message: `${eligible.length} write(s) replayed once; duplicate accepted: ${dupAccepted}, server errors: ${serverErrors}`,
+            evidence: [], details: { replays: rows, refused },
+          };
+        },
+      },
+      {
+        id: 'API-002',
+        name: 'Write without credentials',
+        category: 'security',
+        description: 'Replay run-created 2xx writes without auth headers/cookies',
+        execute: async (_page: Page): Promise<TestResult> => {
+          const { eligible, refused } = classify(await getLog(), origin);
+          const candidates = eligible.filter(hasCredentials);
+          if (candidates.length === 0) {
+            return {
+              testCaseId: 'API-002', status: 'warning', evidence: [],
+              message: eligible.length === 0
+                ? `No replayable writes (refused: ${refused.length}); nothing was replayed`
+                : 'Eligible writes carried no auth headers; authorization replay not applicable',
+              details: { refused },
+            };
+          }
+          const anon = await playwrightRequest.newContext();
+          const rows: Array<Record<string, unknown>> = [];
+          let accepted = 0;
+          try {
+            for (const rec of candidates) {
+              try {
+                const res = await anon.fetch(rec.url, {
+                  method: rec.method, headers: replayHeaders(rec, true),
+                  data: rec.postData ?? undefined, failOnStatusCode: false, timeout: 15000,
+                });
+                const s = res.status();
+                const ok = s >= 200 && s < 300;
+                if (ok) accepted++;
+                rows.push({ request: label(rec), replayStatus: s, verdict: ok ? 'ACCEPTED WITHOUT CREDENTIALS' : 'rejected' });
+              } catch (e) {
+                rows.push({ request: label(rec), error: (e as Error).message });
+              }
+            }
+          } finally {
+            await anon.dispose();
+          }
+          return {
+            testCaseId: 'API-002',
+            status: accepted > 0 ? 'fail' : 'pass',
+            severity: accepted > 0 ? 'critical' : undefined,
+            message: `${candidates.length} write(s) replayed without credentials; accepted: ${accepted}`,
+            evidence: [], details: { replays: rows, refused },
+          };
+        },
+      },
+      {
+        id: 'API-003',
+        name: 'Replay eligibility summary',
+        category: 'security',
+        description: 'Report what was captured and what was refused (only run-created writes are replayed)',
+        execute: async (_page: Page): Promise<TestResult> => {
+          const log = await getLog();
+          const { eligible, refused } = classify(log, origin);
+          return {
+            testCaseId: 'API-003', status: 'pass', evidence: [],
+            message: `Captured ${log.length} 2xx write(s); replay-eligible: ${eligible.length}; refused: ${refused.length}`,
+            details: { eligible: eligible.map(label), refused },
+          };
+        },
+      },
+    ],
+  };
+}
+
+// ============================================================
+// RAPID SUITE (repeated create/update/delete triggers; see lib/rapid.ts)
+// ============================================================
+export function createRapidSuite(maxClicks = 12): TestSuite {
+  return {
+    name: 'Rapid Action Tests',
+    testCases: [
+      {
+        id: 'RPD-001',
+        name: 'Rapid repeated mutating actions (duplicate request / guard / loading indicator)',
+        category: 'security',
+        description: 'Burst-click run-safe mutating triggers; count requests, sample guard and loading indicator',
+        execute: (page: Page): Promise<TestResult> => runRapidSuite(page, { maxClicks }),
       },
     ],
   };

@@ -5,3 +5,6 @@ evidence/
 .env
 .DS_Store
 Thumbs.db
+docs/qa-reports/
+test-results/
+*.webm

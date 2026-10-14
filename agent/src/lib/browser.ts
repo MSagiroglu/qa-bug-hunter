@@ -7,9 +7,26 @@ export interface BrowserConfig {
   viewport: { width: number; height: number };
   videoDir: string;
   screenshotDir: string;
+  /** Opt-in only: disables same-origin protections. Never default. */
+  insecure: boolean;
 }
 
+export interface NetworkRecord {
+  method: string;
+  url: string;
+  status: number;
+  headers: Record<string, string>;
+  postData: string | null;
+  /** 'load' = traffic during initial navigation; 'run' = traffic while the agent was acting. */
+  phase: 'load' | 'run';
+}
+
+const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
 export class BrowserManager {
+  private networkLog: NetworkRecord[] = [];
+  private pendingNetwork: Promise<void>[] = [];
+  phase: 'load' | 'run' = 'load';
   private browser: Browser | null = null;
   private context: BrowserContext | null = null;
   private page: Page | null = null;
@@ -22,6 +39,7 @@ export class BrowserManager {
       viewport: { width: 1920, height: 1080 },
       videoDir: './evidence/videos',
       screenshotDir: './evidence/screenshots',
+      insecure: false,
       ...config,
     };
   }
@@ -29,13 +47,14 @@ export class BrowserManager {
   async launch(): Promise<void> {
     console.log('🚀 Tarayıcı başlatılıyor...');
     
+    const args = ['--start-maximized'];
+    if (this.config.insecure) {
+      console.warn('WARNING: --insecure enabled: browser web security (same-origin policy, site isolation) is disabled. Results may not reflect real-user behavior; use only on throwaway targets.');
+      args.push('--disable-web-security', '--disable-features=IsolateOrigins,site-per-process');
+    }
     this.browser = await chromium.launch({
       headless: this.config.headless,
-      args: [
-        '--start-maximized',
-        '--disable-web-security',
-        '--disable-features=IsolateOrigins,site-per-process',
-      ],
+      args,
     });
 
     this.context = await this.browser.newContext({
@@ -48,6 +67,26 @@ export class BrowserManager {
     });
 
     this.context.setDefaultTimeout(this.config.timeout);
+    this.context.on('response', (response) => {
+      const req = response.request();
+      const status = response.status();
+      if (!WRITE_METHODS.has(req.method()) || status < 200 || status > 299) return;
+      const phase = this.phase;
+      this.pendingNetwork.push(
+        (async () => {
+          const headers = await req.allHeaders().catch(() => ({} as Record<string, string>));
+          const postData = req.postData() ?? null;
+          this.networkLog.push({
+            method: req.method(),
+            url: req.url(),
+            status,
+            headers,
+            postData: postData && postData.length <= 65536 ? postData : null,
+            phase,
+          });
+        })().catch(() => {}),
+      );
+    });
     this.page = await this.context.newPage();
     
     // Maximize window
@@ -86,6 +125,12 @@ export class BrowserManager {
         // Continue to next selector
       }
     }
+  }
+
+  /** Captured 2xx write requests (POST/PUT/PATCH/DELETE). Kept in memory only. */
+  async getNetworkLog(): Promise<NetworkRecord[]> {
+    await Promise.allSettled(this.pendingNetwork);
+    return this.networkLog;
   }
 
   async newPage(): Promise<Page> {

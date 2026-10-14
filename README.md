@@ -159,11 +159,44 @@ No specific gap is queued right now. The architecture (one reference
 file per concern, wired into the existing seven phases) is built to take
 the next one whenever it turns up — issues and PRs welcome.
 
+## Modes, lenses and domain packs (current structure)
+
+- **Modes:** Sweep (default 7-phase pass), Session (`/qa-session "<charter>"`,
+  60-minute charter-driven exploration, one-page summary with a mandatory
+  "Kapsanmayan" line), API-only (no browser required), Load (safety-gated,
+  dry-run first).
+- **Lenses:** `references/lenses/` for web, mobile and API, plus
+  `six-directions.md` (Interrupt, Network, Screen/Shape, State, Data, Permission).
+- **Core techniques:** risk register, rapid-action/double-submit testing
+  (in-flight guard, loading state, duplicate requests), three-witness API+UI
+  verification, role x endpoint authorization matrix, metamorphic/differential
+  testing, second-opinion pass, overlay/modal invariants (WAI-ARIA dialog).
+- **Domain packs (optional, private):** product-specific knowledge lives
+  OUTSIDE this repo in `QA_DOMAIN_PACKS_DIR` or `%USERPROFILE%\.qa-bug-hunter\domains\`
+  (`~/.qa-bug-hunter/domains/` on macOS/Linux). See `references/domains/README.md`.
+  No pack means the skill still works.
+- **Self-tests:** `node tools/selftest/run-selftest.mjs` (overlay helper) and
+  `node tools/selftest/run-rapid-selftest.mjs` (rapid-action helper) prove the
+  helpers on local demo pages. They validate the helpers, not any real product.
+- **Evaluation:** `docs/evaluation/` holds a scored assessment against ISTQB
+  and exploratory-testing literature and the gap backlog derived from it.
+- **Safety:** active injection/XSS material is out of the default scope and
+  requires written authorization on an owned, non-shared target; load and
+  authorization-matrix tools refuse targets that are not allowlisted.
+
 ## Standalone Agent (NEW)
 
 The QA Bug Hunter is now also a **standalone CLI agent** that can run
-independently without any AI coding tool. It uses Playwright to test
-web applications and generates reports automatically.
+independently without any AI coding tool. It is a **smoke-test harness**,
+not a universal tester: the input/security suites discover a search box by
+role/type/placeholder, and when none is found the test is reported as
+`skipped: no target element` (some sites need per-site selector
+configuration in `agent/src/lib/executor.ts`). Findings are heuristic: XSS is a
+`fail` only when a dialog or execution flag is observed (reflection alone is a
+`warning`), SQL-error detection is keyword-based (low confidence), and every
+ticket carries an oracle and confidence field. Browser web security stays on
+unless you pass the opt-in `--insecure` flag. Use the skill for judgment-heavy
+testing.
 
 ### Advantage
 
@@ -211,6 +244,9 @@ node dist/cli.js test --url https://example.com --timeout 120000
 
 # DOM analysis only
 node dist/cli.js analyze --url https://example.com
+
+# Overlay and API suites, domain pack (optional)
+node dist/cli.js test --url http://localhost:3000 --suites overlay,api --domain <name> --repo <path>
 ```
 
 ### Test Suites
@@ -375,48 +411,48 @@ node dist/cli.js analyze --url https://www.amazon.com.tr
 ## Files
 
 - `SKILL.md` — orchestration: the phases, in order, what to read when.
-- `references/discovery.md` — repo/stack discovery checklist (web).
-- `references/mobile-discovery.md` — same, for React Native/Flutter/
+- `references/core/discovery.md` — repo/stack discovery checklist (web).
+- `references/lenses/mobile/mobile-discovery.md` — same, for React Native/Flutter/
   native iOS/Android.
-- `references/blackbox-discovery.md` — discovery without source access
+- `references/core/blackbox-discovery.md` — discovery without source access
   (DOM/network observation), plus the rule for provisioning your own
   minimal Playwright/Appium tooling when none exists.
-- `references/impact-analysis.md` — ripple-effect testing for shared/
+- `references/core/impact-analysis.md` — ripple-effect testing for shared/
   library entities: consumer-surface discovery and the created/edited/
   deleted/deactivated verification matrix.
-- `references/test-design-techniques.md` — ISTQB techniques and how to
+- `references/core/test-design-techniques.md` — ISTQB techniques and how to
   prioritize scenarios by risk instead of maximizing count.
-- `references/input-mutation-catalog.md` — mutation menu per semantic
+- `references/core/input-mutation-catalog.md` — mutation menu per semantic
   input type (web forms).
-- `references/advanced-exploratory-attacks.md` — senior QA attack vectors:
+- `references/core/advanced-exploratory-attacks.md` — senior QA attack vectors:
   empty form submission, existing data collision, type confusion, copy-paste
   attacks, Unicode edge cases, concurrent access, API contract violations.
-- `references/mobile-exploratory-considerations.md` — mobile-specific
+- `references/lenses/mobile/mobile-exploratory-considerations.md` — mobile-specific
   error-guessing (lifecycle, connectivity, permissions, deep links,
   biometrics, device fragmentation).
-- `references/critical-defect-patterns.md` — ghost-success/persistence
+- `references/core/critical-defect-patterns.md` — ghost-success/persistence
   verification and the interrupted-write scenarios to run it against.
-- `references/database-verification.md` — using a database connection
+- `references/core/database-verification.md` — using a database connection
   (when one's already available) as a stronger persistence oracle than
   an API/UI re-fetch — read-only, always.
-- `references/accessibility-checks.md` — the a11y pass run once per
+- `references/lenses/web/accessibility-checks.md` — the a11y pass run once per
   screen: alt text, labels, keyboard reachability, focus management,
   heading hierarchy, contrast.
-- `references/i18n-checks.md` — text-overflow, locale-formatting, RTL,
+- `references/lenses/web/i18n-checks.md` — text-overflow, locale-formatting, RTL,
   and pluralization checks for multi-language apps.
-- `references/security-hygiene.md` — observational (non-pentest)
+- `references/core/security-hygiene.md` — observational (non-pentest)
   security checks: response overexposure, error-message leakage,
   transport/cookie basics. Explicitly scoped away from anything
   resembling penetration testing.
-- `references/oracle-hierarchy.md` — how to decide what "correct
+- `references/core/oracle-hierarchy.md` — how to decide what "correct
   behavior" means when there's no spec.
-- `references/defect-classification.md` — taxonomy, severity rubric,
+- `references/core/defect-classification.md` — taxonomy, severity rubric,
   required evidence fields.
-- `references/evidence-capture.md` — how evidence actually gets written
+- `references/core/evidence-capture.md` — how evidence actually gets written
   to disk (not just described) for both scripted and interactive tools.
-- `references/jira-ticket-template.md` — the per-defect ticket format,
+- `references/core/jira-ticket-template.md` — the per-defect ticket format,
   field-by-field rules, and a worked example.
-- `references/report-template.md` — the overall QA report structure.
+- `references/core/report-template.md` — the overall QA report structure.
 - `PORTABLE.md` — the entire methodology in one self-contained file, no
   external references — paste it as a system/custom instruction into any
   AI tool that can't read local files.

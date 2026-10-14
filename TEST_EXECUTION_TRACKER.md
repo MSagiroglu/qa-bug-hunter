@@ -2,7 +2,7 @@
 
 **Bu dosya test çalıştırılırken DOLDURULMAK ZORUNDADIR.**
 **Her madde için "RUN" veya "SKIP" yazılmalıdır.**
-**SKIP yazıyorsa, NEDENopensource yazılmalıdır.**
+**SKIP yazıyorsa, NEDEN yazılmalıdır.**
 
 ## Test Execution Log
 

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Rapid bad</title></head>
+<body>
+<h1>Items (unguarded, deliberately broken)</h1>
+<!-- Defects: no in-flight guard, no loading indicator, every click sends a request and creates a record,
+     second delete makes the server answer 500 with a stack trace. -->
+<button id="create" type="button">Create item</button>
+<button id="delete" type="button">Delete seed item</button>
+<p id="msg"></p>
+<script>
+const V = 'bad';
+document.getElementById('create').addEventListener('click', async () => {
+  const r = await fetch('/api/' + V + '/items', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'TEST_item' }) });
+  document.getElementById('msg').textContent = r.ok ? 'Created' : 'Error ' + r.status;
+});
+document.getElementById('delete').addEventListener('click', async () => {
+  const r = await fetch('/api/' + V + '/items/seed', { method: 'DELETE' });
+  document.getElementById('msg').textContent = r.ok ? 'Deleted' : 'Error ' + r.status;
+});
+</script></body></html>

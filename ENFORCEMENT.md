@@ -5,7 +5,7 @@
 
 ## 🚨 CRITICAL RULES ( Bunlar ATLANAMAZ )
 
-### BROWSER RULES (MANDATORY)
+### BROWSER RULES (MANDATORY for UI work; N/A for API-only and Load modes — state the mode in the report header)
 - [ ] **HEADLESS: FALSE** — Browser MUST be visible to user at all times
 - [ ] **FULL SCREEN** — Browser window MUST be maximized/fullscreen
 - [ ] User MUST see every action live: navigation, clicks, inputs, assertions
@@ -16,12 +16,12 @@
 - [ ] Source code read (ALL relevant files, not just one)
 - [ ] Data flow traced: UI → Frontend → API → Backend → DB → Response → UI
 - [ ] DOM structure analyzed (elements, states, hidden items)
-- [ ] Existing test data identified (NEVER use for destructive tests)
+- [ ] Existing data identified (READ-ONLY; collision/duplicate tests use only `TEST_*` data created in this run)
 - [ ] Authentication verified
 - [ ] API endpoints identified
 
 ### DURING TESTING (Phase 3-4)
-- [ ] ALL reference files read (test-design, input-mutation, critical-defects, advanced-attacks)
+- [ ] Reference files read: all of `references/core/`, the selected lens folder(s), `references/invariants/` for UI modes, and the selected domain pack's `pack.md` + files it lists
 - [ ] Search tests: case sensitivity, partial match, multi-word, debounce
 - [ ] Date filter tests: invalid ranges, boundary values
 - [ ] CRUD tests: empty submit, duplicate, type confusion

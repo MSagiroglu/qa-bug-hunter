@@ -1,7 +1,7 @@
 ---
 name: senior-qa-explorer
 description: Systematic exploratory QA testing for web and mobile apps — turns "test module X" into discovery, ISTQB-based test design, hypothesis-driven execution, evidence collection, and defect classification. Use for finding bugs beyond the happy path, not just confirming a flow works.
-triggers: test this module, exploratory test, find bugs in, qa explore, bul bug, hata bul, test et (senior qa), /qa-explore
+triggers: test this module, exploratory test, find bugs in, qa explore, bul bug, hata bul, test et (senior qa), /qa-explore, /qa-session
 category: testing
 ---
 
@@ -38,6 +38,41 @@ your host environment actually provides (Read/Bash/Playwright MCP in Claude
 Code; the native file/terminal/browser tools in Cursor, Codex CLI, Windsurf,
 Gemini CLI, etc.). Do not assume any specific tool name.
 
+## Modes, lenses, domain packs
+
+State the chosen mode, lenses and domain pack at the top of the report.
+
+**Modes** (pick one; Sweep is the default):
+
+| Mode | Use when | Browser rules |
+|------|----------|---------------|
+| Sweep (default) | Systematic pass over a module/page/feature using the phases below | Apply (UI work) |
+| Session | Time-boxed, charter-driven exploration; follow `references/core/session-mode.md`, fill `templates/session-summary.md`, pick a direction from `references/lenses/six-directions.md` | Apply (UI work) |
+| API-only | Target has no UI in scope; test the API directly via `references/lenses/api/api-lens.md` | N/A |
+| Load | Load/performance check; follow `references/load/method.md` and `references/load/safety-gates.md` BEFORE any request is sent, use `templates/k6/` (dry-run first). Never run without an explicit, allowlisted target | N/A |
+
+`TEST_EXECUTION_TRACKER.md` is for Sweep runs only; Session runs use
+`templates/session-summary.md`.
+
+**Lenses** (pick one or more; the target may need several):
+- `web` — `references/lenses/web/`
+- `mobile` — `references/lenses/mobile/`
+- `api` — `references/lenses/api/`
+
+**Domain packs** (optional, product-specific knowledge kept outside this
+repo). Pack directory: `QA_DOMAIN_PACKS_DIR` if set, otherwise
+`%USERPROFILE%\.qa-bug-hunter\domains\` (`~/.qa-bug-hunter/domains/` on
+macOS/Linux). A pack is a directory `<dir>\<name>\pack.md` whose header has a
+`Markers:` line. Resolve in this order:
+1. `--domain <name>` given: use `<dir>\<name>\pack.md`.
+2. Otherwise, for every `<dir>\*\pack.md`, match its `Markers:` entries
+   (files, folders, or package names) against the target repository; the
+   first pack whose markers match is used.
+3. No match (or no pack directory): no pack. The skill works fully without
+   one; write `Domain pack: none` in the report header.
+
+When a pack is selected, read its `pack.md` and every file it lists.
+
 ## Core rule
 
 A successful happy path is the *start* of testing, not the end. Every phase
@@ -66,8 +101,8 @@ that runs predetermined steps. You are a senior QA engineer who:
    happens when I combine Y and Z? What happens when I break the expected
    order?
 
-5. **Follows ALL reference files** in `references/` directory. These are
-   NOT optional. Read them ALL before designing tests.
+5. **Follows the reference files** for the selected mode/lenses (see Step 3.1).
+   These are NOT optional. Read them ALL before designing tests.
 
 6. **Generates tests from source code analysis** — if you see a search
    field, test case sensitivity, partial match, debounce behavior, special
@@ -84,11 +119,15 @@ that runs predetermined steps. You are a senior QA engineer who:
    - Performing the operation
    - Waiting for the API response
    - Checking if the UI updated automatically
-   - If not updated: CONFIRMED DEFECT (UI not synchronized)
+   - If not updated and no documented deferred/eventual-consistency behavior
+     explains it: DEFECT (UI not synchronized); if the product documents an
+     async refresh cycle, verify that cycle and classify via the oracle
    - Document the refresh requirement as a bug
 
 9. **Maintains TEST DATA HYGIENE** — Tests MUST:
-   - NEVER modify existing production/test data
+   - Existing data is READ-ONLY: never modify or delete it
+   - Duplicate/collision tests use ONLY `TEST_*` data created in this run
+   - IDOR/authorization tests use two own test users, never real users' data
    - ALWAYS create NEW test data for each test
    - ALWAYS clean up ALL created test data after tests complete
    - Leave the system in the SAME state as before testing
@@ -96,6 +135,8 @@ that runs predetermined steps. You are a senior QA engineer who:
    - Document all created data and verify cleanup
 
 ## Capability boundaries (state these honestly, don't oversell)
+
+Applies to **UI work (web/mobile)**. For **API-only** targets skip Playwright provisioning and headed rules; use the API lens (`references/lenses/api/api-lens.md`).
 
 **MANDATORY TOOLING: Playwright for web testing.**
 
@@ -234,20 +275,20 @@ If the target repo has existing tests:
    available (curl, Postman, etc.)?
 4. **Check the logs** — can you access backend logs? Console output?
 
-Read `references/discovery.md` for the full discovery checklist. If no
-source code is available, read `references/blackbox-discovery.md` instead.
+Read `references/core/discovery.md` for the full discovery checklist. If no
+source code is available, read `references/core/blackbox-discovery.md` instead.
 
 **Multi-language apps:** if discovery finds the app supports more than
-one language/locale, also read `references/i18n-checks.md`. Skip it for
+one language/locale, also read `references/lenses/web/i18n-checks.md`. Skip it for
 single-language apps — don't force this check where it can't apply.
 
 **Shared/library entities:** while identifying the target entity's
 backend representation, check whether it's referenced by other
 tables/services/frontend components. If shared, also read
-`references/impact-analysis.md`.
+`references/core/impact-analysis.md`.
 
 **Database access:** if a database connection is already available — not
-something you go set up — read `references/database-verification.md` and
+something you go set up — read `references/core/database-verification.md` and
 use it as the strongest available persistence oracle.
 
 Do not generate test scenarios before discovery is done. Guessing at
@@ -278,8 +319,12 @@ between fields, and the API contract. This is the map Phase 3 works from.
 - Transitions to other states
 - Data requirements
 
+Before Phase 3, record a risk register and an assumptions register
+(`references/core/risk-register.md`): risk level = likelihood x impact drives
+the order of Phase 3; every assumption is tagged verified/unverified.
+
 If Phase 1 found the entity is shared, also list every consumer surface
-`impact-analysis.md` found — each one is a model entry the same way an
+`references/core/impact-analysis.md` found — each one is a model entry the same way an
 input field is.
 
 ## Phase 3 — Test design
@@ -288,23 +333,42 @@ input field is.
 
 ### Step 3.1 — Read ALL Reference Files
 
+Read: all of `references/core/`, the selected lens folder(s) under
+`references/lenses/`, `references/invariants/` for UI modes, and the selected
+domain pack's `pack.md` + the files it lists.
+
 Before designing ANY test, you MUST read these files IN ORDER:
 
-1. `references/test-design-techniques.md` — which technique to use when,
+1. `references/core/test-design-techniques.md` — which technique to use when,
    and how to prioritize by risk/impact rather than maximize count
-2. `references/input-mutation-catalog.md` — candidate mutations per semantic
+2. `references/core/input-mutation-catalog.md` — candidate mutations per semantic
    input type
-3. `references/critical-defect-patterns.md` — interrupted-write scenarios
+3. `references/core/critical-defect-patterns.md` — interrupted-write scenarios
    (refresh/kill mid-write, network drop timed to the write, double-submit,
    throttled connection)
-4. `references/advanced-exploratory-attacks.md` — empty form submission,
-   existing data collision, type confusion, copy-paste attacks, unicode
+4. `references/core/advanced-exploratory-attacks.md` — empty form submission,
+   data collision (using only `TEST_*` data created in this run), type confusion, copy-paste attacks, unicode
    edge cases, concurrent access, API contract violations
-5. `references/oracle-hierarchy.md` — how to determine expected behavior
-6. `references/defect-classification.md` — classification taxonomy,
+5. `references/core/oracle-hierarchy.md` — how to determine expected behavior
+6. `references/core/defect-classification.md` — classification taxonomy,
    severity rubric, and required fields per confirmed defect
-7. `references/evidence-capture.md` — what evidence to collect and how
-8. `references/jira-ticket-template.md` — per-defect ticket format
+7. `references/core/evidence-capture.md` — what evidence to collect and how
+8. `references/core/jira-ticket-template.md` — per-defect ticket format
+
+Then, as the target requires (read the ones that apply, skip the rest):
+
+9. `references/core/risk-register.md` — likelihood x impact ordering and the
+   assumptions register (create it BEFORE designing scenarios)
+10. `references/core/rapid-action-testing.md` — rapid repeated clicks on
+    create/update/delete: in-flight guard, loading state, duplicate requests
+11. `references/core/heuristics-cheatsheet.md` and
+    `references/core/perturbation-dimensions.md` — heuristics, tours, time,
+    data shape, concurrency, locale
+12. `references/core/metamorphic-differential.md` — when there is no oracle
+13. `references/core/authz-matrix.md` — role x endpoint authorization (own
+    test users only; safety gates apply)
+14. `references/core/principles.md`, `references/core/planning-and-completion.md`
+    — framing, exit criteria, traceability
 
 **DO NOT SKIP ANY OF THESE FILES.** Each one contains critical information
 for designing effective tests.
@@ -346,7 +410,7 @@ Based on source code analysis and reference file reading, generate:
 - Empty search (clears filter, shows all results)
 - Non-existent search (returns empty state, shows message)
 - Debounce behavior (how many keystrokes before search triggers?)
-- Search with existing data (use actual records from the database)
+- Search using values of records visible in the UI (read-only) and `TEST_*` records created in this run
 
 **Date filter scenarios (if date filters exist):**
 - Start date after end date
@@ -365,32 +429,39 @@ Based on source code analysis and reference file reading, generate:
 - SQL injection in form fields
 - Concurrent edits (two tabs editing same record)
 - Interrupted writes (refresh during save, network drop)
+- **RAPID ACTION** (every create/update/delete): fire the action 2x then 5x
+  in quick succession (double-click, rapid clicks, Enter held). Is there a
+  loading state? Is the control disabled/aria-busy until the request returns?
+  Is the same API request sent more than once? Are duplicate records created?
+  Does a second delete fail cleanly? See `references/core/rapid-action-testing.md`.
 - Status transitions (active → inactive → active)
 - Permission checks (can user X edit user Y's data?)
 - **SYNCHRONOUS UI UPDATE** (MANDATORY): After create/update/delete, verify
   UI reflects change IMMEDIATELY without refresh. If refresh needed → DEFECT.
 
 **Test Data Hygiene (MANDATORY for ALL CRUD tests):**
-- NEVER modify existing production/test data
+- Existing data is READ-ONLY: never modify or delete it
+- Duplicate/collision tests use ONLY `TEST_*` data created in this run
+- IDOR/authorization tests use two own test users, never real users' data
 - ALWAYS create NEW test data with unique identifiers (e.g., "Test_Template_20260827_001")
 - ALWAYS clean up ALL created test data after tests complete
 - Leave system in SAME state as before testing
 - Document all created data and verify cleanup in final step
 
-**Mobile targets:** also read `references/mobile-exploratory-considerations.md`
+**Mobile targets:** also read `references/lenses/mobile/mobile-exploratory-considerations.md`
 for mobile-specific error-guessing.
 
 **Web layout:** include the Responsive/Viewport Testing technique from
-`references/test-design-techniques.md` for any screen with viewport-
+`references/core/test-design-techniques.md` for any screen with viewport-
 dependent layout.
 
 **Every screen (once per screen, not per scenario):** run
-`references/accessibility-checks.md`'s page-level pass.
+`references/lenses/web/accessibility-checks.md`'s page-level pass.
 
-**Multi-language apps:** include `references/i18n-checks.md`'s scenarios.
+**Multi-language apps:** include `references/lenses/web/i18n-checks.md`'s scenarios.
 
 **Every feature (observational, not a separate testing pass):** apply
-`references/security-hygiene.md` to whatever traffic/responses this run
+`references/core/security-hygiene.md` to whatever traffic/responses this run
 already produces.
 
 ## Phase 4 — Execution loop
@@ -429,6 +500,17 @@ ANOMALY?     → does observation differ from the oracle (Phase 6)?
 3. Document the refresh requirement as a bug
 4. Take screenshot before and after to prove the issue
 
+**After EACH write action, apply the three-witness rule** (UI state, network
+response, independent re-read — see `references/core/api-ui-crosscheck.md`,
+helper `templates/playwright/api-ui-crosscheck.ts`). Any disagreement between
+the three is a finding; classify it with that file's mismatch table.
+
+**For EVERY create/update/delete, also run the rapid-action burst**
+(`references/core/rapid-action-testing.md`, helper
+`templates/playwright/rapid-action.ts`): count matching requests per intent
+(expected exactly 1), check the in-flight guard and loading indicator, re-read
+the record count. Cap burst sizes, respect throttle ceilings, `TEST_` data only.
+
 **CRUD Test Data Rules (MANDATORY):**
 1. Create test data with UNIQUE identifier: `TEST_<feature>_<timestamp>_<sequence>`
    - Example: `TEST_template_202608272250_001`
@@ -448,13 +530,13 @@ a browser devtools check).
 what's happening, not just read a transcript afterward.
 
 **Cross-browser:** for rendering/layout/JS-engine-related findings, apply
-`references/test-design-techniques.md`'s Cross-Browser Verification
+`references/core/test-design-techniques.md`'s Cross-Browser Verification
 technique before finalizing classification.
 
 ## Phase 5 — Evidence collection
 
 For every suspicious or confirmed finding, produce actual evidence files
-per `references/evidence-capture.md` — not a description of what you saw,
+per `references/core/evidence-capture.md` — not a description of what you saw,
 a saved screenshot/network dump/console log at a real path.
 
 **Required evidence for EVERY finding:**
@@ -497,8 +579,8 @@ investigation step is mandatory first.
 
 ## Phase 6 — Defect classification
 
-Read `references/oracle-hierarchy.md` to determine expected behavior with
-the strongest evidence available, and `references/defect-classification.md`
+Read `references/core/oracle-hierarchy.md` to determine expected behavior with
+the strongest evidence available, and `references/core/defect-classification.md`
 for the classification taxonomy, severity rubric, and required fields per
 confirmed defect. If no confident oracle can be established, classify as
 "Potential Defect / Behavior Requiring Clarification" — never assert it as
@@ -515,9 +597,17 @@ confirmed.
 CONFIRMED DEFECT, if there's an execution tool and existing test suite to
 add to, ask the user whether to add a permanent regression test for it now.
 
+## Phase 6b — Second opinion (before the report)
+
+Re-read every CONFIRMED/POTENTIAL finding and try to DISPROVE it
+(`references/core/second-opinion.md`): is the oracle really strong, is there a
+benign explanation, is it a duplicate, is it reproducible (state the rate).
+Downgrade what fails. Check exit criteria and traceability with
+`references/core/planning-and-completion.md`.
+
 ## Phase 7 — Report
 
-**Write a comprehensive report** using `references/report-template.md`.
+**Write a comprehensive report** using `references/core/report-template.md`.
 
 **Required sections:**
 1. **Executive Summary** — total tests run, defects found, critical issues
@@ -533,7 +623,7 @@ add to, ask the user whether to add a permanent regression test for it now.
 5. **Recommendations** — what to fix first, what to investigate further
 
 **Every CONFIRMED DEFECT** gets formatted as a paste-ready ticket per
-`references/jira-ticket-template.md` — TEST SET ID/TEST CASE ID, Title,
+`references/core/jira-ticket-template.md` — TEST SET ID/TEST CASE ID, Title,
 📋 Steps to Reproduce, 🖼️ Actual Result, 🎯 Expected Result,
 📎 Ekler/Attachments — not a plain prose paragraph.
 
@@ -571,7 +661,10 @@ file to learn whether anything critical was found.
 
 - Natural language: "test the Create Goal modal," "X modülünü exploratory
   test et," "bul bug."
-- Explicit: `/qa-explore <module or feature>`.
+- Explicit (Sweep): `/qa-explore <module or feature>`.
+- Explicit (Session): `/qa-session "<charter>"` — a charter is
+  `Keşfet … / Şununla … / Bulmak için …` (see `templates/charter.md`). If no
+  charter is given, ask for one; do not invent it.
 
 When the target module/scope is ambiguous, ask before starting Phase 1 — an
 exploratory pass on the wrong feature wastes the whole pipeline.
@@ -587,16 +680,24 @@ exploratory pass on the wrong feature wastes the whole pipeline.
       investigation before classification.
 - [ ] No defect reported on assertion failure alone.
 - [ ] Every confirmed defect has required evidence fields.
-- [ ] Every confirmed/filed defect is formatted per jira-ticket-template.md.
+- [ ] Every confirmed/filed defect is formatted per references/core/jira-ticket-template.md.
 - [ ] Oracle used is stated for each finding.
 - [ ] Every write-capable scenario checked persistence independently.
 - [ ] Empty form submission test run on all forms.
-- [ ] Existing data collision test run where DB access available.
+- [ ] Collision test run using only data created in this run.
 - [ ] Type confusion tests run.
 - [ ] API contract violation tests run.
 - [ ] Concurrent access/race condition tests run for write operations.
 - [ ] Copy-paste and Unicode edge case tests run.
 - [ ] Browser navigation (back/forward/refresh) tests run.
+- [ ] Three-witness check (UI / network / independent re-read) done for every write action.
+- [ ] Load mode only: allowlisted target, safety gates passed, dry-run done first, cleanup verified.
+- [ ] Risk register and assumptions register created before Phase 3 (`references/core/risk-register.md`).
+- [ ] Rapid-action burst (2x, 5x) run on every create/update/delete: in-flight guard, loading state, request count, record count.
+- [ ] Second-opinion pass done on all findings before the report.
+- [ ] API targets: role x endpoint matrix (`references/core/authz-matrix.md`) run with own test users, or stated why not.
+- [ ] No-oracle areas: a metamorphic/differential relation was tried (`references/core/metamorphic-differential.md`).
+- [ ] Overlay invariants (`references/invariants/overlay-dialog.md`) run on every modal/drawer/popover touched: background scroll lock, ESC, close button reachable, focus trap/restore.
 - [ ] Search-specific tests run (case sensitivity, partial match, debounce).
 - [ ] Date filter tests run (invalid ranges, boundary values).
 - [ ] Multi-language tests run if applicable.
@@ -606,7 +707,6 @@ exploratory pass on the wrong feature wastes the whole pipeline.
 - [ ] ALL test data cleaned up after tests complete.
 - [ ] System state verified same as before testing.
 - [ ] Cleanup verified in UI AND via API/database.
-- [ ] Evidence files organized and saved.
 - [ ] Evidence files organized and saved.
 - [ ] Report written to `docs/qa-reports/` and summarized in-conversation.
 - [ ] Regression lock-in offer made for confirmed defects.

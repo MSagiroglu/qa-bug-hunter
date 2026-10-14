@@ -9,7 +9,52 @@ export interface ReportConfig {
   includeEvidence: boolean;
 }
 
+export interface ReportMeta {
+  /** e.g. "Headless" or "Headed (Full Screen)" */
+  mode: string;
+  /** Suites that were selected for this run */
+  lenses: string[];
+  /** Domain pack name, or 'none' */
+  domainPack: string;
+}
+
 export class Reporter {
+  private meta: ReportMeta = { mode: 'Headed (Full Screen)', lenses: [], domainPack: 'none' };
+
+  setMeta(meta: ReportMeta): void {
+    this.meta = meta;
+  }
+
+  private headerLines(): string {
+    return `**Mode:** ${this.meta.mode}
+**Lenses:** ${this.meta.lenses.join(', ') || 'none'}
+**Domain pack:** ${this.meta.domainPack}`;
+  }
+
+  // Header-only report written when the run fails before tests complete
+  // (for example, the target is unreachable).
+  async generateFailureReport(url: string, error: Error): Promise<string> {
+    const timestamp = new Date().toISOString().split('T')[0];
+    const reportDir = path.join(this.config.outputDir, `${timestamp}`);
+    await this.ensureDir(reportDir);
+    const body = `# Exploratory QA Report
+
+**Target:** ${url}
+**Date:** ${timestamp}
+${this.headerLines()}
+
+---
+
+## Run aborted
+
+${error.message.split('\n')[0]}
+`;
+    const reportPath = path.join(reportDir, `report.${this.config.format}`);
+    await fs.promises.writeFile(reportPath, body, 'utf-8');
+    console.log(`Report written: ${reportPath}`);
+    return reportPath;
+  }
+
   private config: ReportConfig;
 
   constructor(config: Partial<ReportConfig> = {}) {
@@ -66,13 +111,15 @@ export class Reporter {
     const passed = testResults.filter(r => r.status === 'pass').length;
     const failed = testResults.filter(r => r.status === 'fail').length;
     const warnings = testResults.filter(r => r.status === 'warning').length;
+    const skipped = testResults.filter(r => r.status === 'skipped').length;
 
     let report = `# Exploratory QA Report
 
 **Target:** ${url}
 **Date:** ${new Date().toISOString().split('T')[0]}
 **Execution Time:** ${(executionTime / 1000).toFixed(2)}s
-**Browser:** Chromium (Playwright) - Headed Mode
+${this.headerLines()}
+**Browser:** Chromium (Playwright)
 **Viewport:** 1920x1080
 ${videoPath ? `**Video Recording:** ${videoPath}` : ''}
 
@@ -86,7 +133,8 @@ ${videoPath ? `**Video Recording:** ${videoPath}` : ''}
 | ✅ Passed | ${passed} |
 | ❌ Failed | ${failed} |
 | ⚠️ Warnings | ${warnings} |
-| Success Rate | ${((passed / testResults.length) * 100).toFixed(1)}% |
+| ⏭️ Skipped | ${skipped} |
+| Success Rate | ${testResults.length ? ((passed / testResults.length) * 100).toFixed(1) : '0.0'}% |
 
 ---
 
@@ -116,7 +164,7 @@ ${videoPath ? `**Video Recording:** ${videoPath}` : ''}
 `;
 
     for (const result of testResults) {
-      const icon = result.status === 'pass' ? '✅' : result.status === 'fail' ? '❌' : '⚠️';
+      const icon = result.status === 'pass' ? '✅' : result.status === 'fail' ? '❌' : result.status === 'skipped' ? '⏭️' : '⚠️';
       const severityBadge = result.severity ? ` [${result.severity.toUpperCase()}]` : '';
       
       report += `### ${icon} ${result.testCaseId}: ${result.status.toUpperCase()}${severityBadge}
@@ -124,6 +172,7 @@ ${videoPath ? `**Video Recording:** ${videoPath}` : ''}
 **Test Name:** ${result.testCaseId}
 **Status:** ${result.status.toUpperCase()}
 ${result.severity ? `**Severity:** ${result.severity.toUpperCase()}` : ''}
+${result.oracle ? `**Oracle:** ${result.oracle} (confidence: ${result.confidence ?? 'unspecified'})` : ''}
 
 **Description:**
 ${result.message}
@@ -135,6 +184,21 @@ ${result.message}
 \`\`\`json
 ${JSON.stringify(result.details, null, 2)}
 \`\`\`
+
+`;
+      }
+
+      const NL = String.fromCharCode(10);
+      const rapidRows = result.testCaseId.startsWith('RPD') ? result.details?.rows : null;
+      if (Array.isArray(rapidRows) && rapidRows.length > 0) {
+        report += `**Rapid-action measurements (candidates, need oracle confirmation):**
+
+| Action | Clicks | Accepted by DOM | Requests sent | Guard | Loading indicator | Released after settle |
+|--------|--------|-----------------|---------------|-------|-------------------|-----------------------|
+${rapidRows.map((r: any) => `| ${r.action} | ${r.clicks} | ${r.acceptedByDom} | ${r.requests} (${r.endpoint}) | ${r.guard ? 'Y' : 'N'} | ${r.loadingIndicator ? 'Y' : 'N'} | ${r.releasedAfterSettle} |`).join(NL)}
+
+${(result.details.verdicts ?? []).map((v: any) => `- ${v.action}: ${v.text}`).join(NL)}
+${(result.details.observations ?? []).map((o: string) => `- Observation: ${o}`).join(NL)}
 
 `;
       }
@@ -276,6 +340,7 @@ ${videoPath ? `Video recording: ${videoPath}` : ''}
         passed: testResults.filter(r => r.status === 'pass').length,
         failed: testResults.filter(r => r.status === 'fail').length,
         warnings: testResults.filter(r => r.status === 'warning').length,
+        skipped: testResults.filter(r => r.status === 'skipped').length,
         bySeverity: {
           critical: testResults.filter(r => r.severity === 'critical').length,
           high: testResults.filter(r => r.severity === 'high').length,

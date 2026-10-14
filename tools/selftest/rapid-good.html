@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Rapid good</title>
+<style>#spinner{display:none}#spinner.on{display:inline-block}</style></head>
+<body>
+<h1>Items (guarded)</h1>
+<button id="create" type="button">Create item</button>
+<button id="delete" type="button">Delete seed item</button>
+<span id="spinner" role="status" aria-live="polite">Saving...</span>
+<p id="msg"></p>
+<script>
+const V = 'good';
+function guard(btn, run) {
+  let busy = false;
+  btn.addEventListener('click', async () => {
+    if (busy) return;
+    busy = true;
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    document.getElementById('spinner').classList.add('on');
+    try { await run(); }
+    catch (e) { document.getElementById('msg').textContent = 'Error: ' + e.message; }
+    finally {
+      busy = false;
+      btn.disabled = false;
+      btn.removeAttribute('aria-busy');
+      document.getElementById('spinner').classList.remove('on');
+    }
+  });
+}
+guard(document.getElementById('create'), async () => {
+  const r = await fetch('/api/' + V + '/items', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'TEST_item' }) });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  document.getElementById('msg').textContent = 'Created';
+});
+guard(document.getElementById('delete'), async () => {
+  const r = await fetch('/api/' + V + '/items/seed', { method: 'DELETE' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  document.getElementById('msg').textContent = 'Deleted';
+});
+</script></body></html>

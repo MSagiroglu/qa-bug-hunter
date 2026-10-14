@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Selftest: good modal</title>
+<style>
+  body { margin: 0; font-family: sans-serif; }
+  .tall { min-height: 3000px; padding: 16px; }
+  .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; align-items: center; justify-content: center; }
+  .backdrop.open { display: flex; }
+  .modal { background: #fff; padding: 16px; width: 400px; max-width: calc(100vw - 16px); max-height: 90vh; overflow: auto; position: relative; }
+  .modal[hidden] { display: none; }
+  #close-btn { position: absolute; top: 4px; right: 4px; }
+</style>
+</head>
+<body>
+<div class="tall">
+  <h1>Good modal demo</h1>
+  <button id="open-btn" type="button">Open dialog</button>
+  <p>Scroll filler below.</p>
+</div>
+<div class="backdrop" id="backdrop">
+  <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" hidden>
+    <button id="close-btn" type="button" aria-label="Close">X</button>
+    <h2 id="modal-title">Example dialog</h2>
+    <label>Name <input id="name-input" type="text"></label>
+    <button id="ok-btn" type="button">OK</button>
+  </div>
+</div>
+<script>
+  var trigger = document.getElementById('open-btn');
+  var backdrop = document.getElementById('backdrop');
+  var modal = document.getElementById('modal');
+  var closeBtn = document.getElementById('close-btn');
+  var isOpen = false;
+  function focusables() {
+    return Array.prototype.slice.call(modal.querySelectorAll('button, input'));
+  }
+  function openDlg() {
+    if (isOpen) return;
+    isOpen = true;
+    modal.hidden = false;
+    backdrop.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    closeBtn.focus();
+  }
+  function closeDlg() {
+    if (!isOpen) return;
+    isOpen = false;
+    modal.hidden = true;
+    backdrop.classList.remove('open');
+    document.body.style.overflow = '';
+    trigger.focus();
+  }
+  trigger.addEventListener('click', openDlg);
+  closeBtn.addEventListener('click', closeDlg);
+  document.getElementById('ok-btn').addEventListener('click', closeDlg);
+  document.addEventListener('keydown', function (e) {
+    if (!isOpen) return;
+    if (e.key === 'Escape') { closeDlg(); return; }
+    if (e.key === 'Tab') {
+      var f = focusables();
+      var first = f[0], last = f[f.length - 1];
+      if (!modal.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+      else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  });
+</script>
+</body>
+</html>

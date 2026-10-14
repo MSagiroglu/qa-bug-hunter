@@ -7,10 +7,14 @@ import {
   createInputTestSuite,
   createResponsiveTestSuite,
   createAccessibilityTestSuite,
-  createNavigationTestSuite
+  createNavigationTestSuite,
+  createOverlaySuite,
+  createApiSuite,
+  createRapidSuite
 } from './lib/executor.js';
 import { Reporter, ReportConfig } from './lib/reporter.js';
 import { TicketGenerator, TicketConfig, Ticket } from './lib/ticket.js';
+import { resolveDomain } from './lib/domain.js';
 import { EventEmitter } from 'events';
 
 export interface OrchestratorConfig {
@@ -19,6 +23,12 @@ export interface OrchestratorConfig {
   report: Partial<ReportConfig>;
   ticket: Partial<TicketConfig>;
   testSuites: string[];
+  /** Explicit domain pack name; undefined = auto-detect */
+  domain?: string;
+  /** Repo root used for pack marker detection (default: cwd) */
+  repo?: string;
+  /** Hard cap on rapid-suite click attempts for the whole run (default 12) */
+  rapidMaxClicks?: number;
 }
 
 export interface OrchestratorEvents {
@@ -39,6 +49,7 @@ export class Orchestrator extends EventEmitter {
   private domAnalysis: DOMAnalysis | null = null;
   private testResults: TestResult[] = [];
   private tickets: Ticket[] = [];
+  private domainPack = 'none';
 
   constructor(config: OrchestratorConfig) {
     super();
@@ -46,6 +57,13 @@ export class Orchestrator extends EventEmitter {
     this.browserManager = new BrowserManager(config.browser);
     this.reporter = new Reporter(config.report);
     this.ticketGenerator = new TicketGenerator(config.ticket);
+    const resolution = resolveDomain(config.domain, config.repo ?? process.cwd());
+    this.domainPack = resolution.name;
+    this.reporter.setMeta({
+      mode: config.browser.headless ? 'Headless' : 'Headed (Full Screen)',
+      lenses: this.getSelectedSuiteNames(),
+      domainPack: resolution.name,
+    });
   }
 
   async run(): Promise<{
@@ -80,6 +98,7 @@ export class Orchestrator extends EventEmitter {
       // Phase 3: Execute Tests
       this.emit('phase:started', 'Test Execution');
       console.log('\n🧪 Phase 3: Testler çalıştırılıyor...');
+      this.browserManager.phase = 'run';
       const executor = new TestExecutor(page);
 
       executor.on('test:completed', (result) => {
@@ -133,35 +152,47 @@ export class Orchestrator extends EventEmitter {
       };
 
     } catch (error) {
-      this.emit('error', error as Error);
+      try {
+        await this.reporter.generateFailureReport(this.config.url, error as Error);
+      } catch {
+        // reporting must not mask the original error
+      }
+      // An EventEmitter throws on 'error' without a listener; only emit when handled.
+      if (this.listenerCount('error') > 0) this.emit('error', error as Error);
       throw error;
     } finally {
       await this.browserManager.close();
     }
   }
 
+  private getSelectedSuiteNames(): string[] {
+    const known = ['security', 'input', 'responsive', 'accessibility', 'navigation', 'overlay', 'rapid', 'api'];
+    // rapid fires repeated mutating clicks, so it is opt-in and not part of 'all'.
+    if (this.config.testSuites.includes('all')) return known.filter(n => n !== 'rapid');
+    return known.filter(n => this.config.testSuites.includes(n));
+  }
+
   private getSelectedTestSuites() {
     const allSuites = [
-      { name: 'security', suite: createSecurityTestSuite() },
-      { name: 'input', suite: createInputTestSuite() },
-      { name: 'responsive', suite: createResponsiveTestSuite() },
-      { name: 'accessibility', suite: createAccessibilityTestSuite() },
-      { name: 'navigation', suite: createNavigationTestSuite() },
+      { name: 'security', suite: () => createSecurityTestSuite() },
+      { name: 'input', suite: () => createInputTestSuite() },
+      { name: 'responsive', suite: () => createResponsiveTestSuite() },
+      { name: 'accessibility', suite: () => createAccessibilityTestSuite() },
+      { name: 'navigation', suite: () => createNavigationTestSuite() },
+      { name: 'overlay', suite: () => createOverlaySuite() },
+      { name: 'rapid', suite: () => createRapidSuite(this.config.rapidMaxClicks ?? 12) },
+      // api last: it replays writes captured while the other suites ran
+      { name: 'api', suite: () => createApiSuite(() => this.browserManager.getNetworkLog(), this.config.url) },
     ];
-
-    if (this.config.testSuites.includes('all')) {
-      return allSuites.map(s => s.suite);
-    }
-
-    return allSuites
-      .filter(s => this.config.testSuites.includes(s.name))
-      .map(s => s.suite);
+    const wanted = new Set(this.getSelectedSuiteNames());
+    return allSuites.filter(s => wanted.has(s.name)).map(s => s.suite());
   }
 
   private printSummary(executionTime: number, reportPath: string, videoPath: string | null): void {
     const passed = this.testResults.filter(r => r.status === 'pass').length;
     const failed = this.testResults.filter(r => r.status === 'fail').length;
     const warnings = this.testResults.filter(r => r.status === 'warning').length;
+    const skipped = this.testResults.filter(r => r.status === 'skipped').length;
 
     console.log('\n' + '='.repeat(60));
     console.log('📊 TEST SUMMARY');
@@ -171,6 +202,7 @@ export class Orchestrator extends EventEmitter {
     console.log(`✅ Passed: ${passed}`);
     console.log(`❌ Failed: ${failed}`);
     console.log(`⚠️  Warnings: ${warnings}`);
+    console.log(`⏭️  Skipped: ${skipped}`);
     console.log(`🎫 Tickets Generated: ${this.tickets.length}`);
     console.log(`📄 Report: ${reportPath}`);
     if (videoPath) {
@@ -189,6 +221,13 @@ export class Orchestrator extends EventEmitter {
       console.log('\n⚠️  WARNINGS:');
       this.testResults
         .filter(r => r.status === 'warning')
+        .forEach(r => console.log(`   - ${r.testCaseId}: ${r.message}`));
+    }
+
+    if (skipped > 0) {
+      console.log('\nSKIPPED:');
+      this.testResults
+        .filter(r => r.status === 'skipped')
         .forEach(r => console.log(`   - ${r.testCaseId}: ${r.message}`));
     }
 

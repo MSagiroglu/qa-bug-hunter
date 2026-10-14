@@ -7,6 +7,11 @@ the file-based version of this skill instead (ask for its location) since
 it stays in sync and is kept up to date there; this copy is a frozen
 snapshot for tools that can't.
 
+> **Snapshot notice:** this copy predates the modes, lenses, domain packs,
+> rapid-action testing, risk register and overlay invariants described in
+> `README.md` and `SKILL.md`. Where this copy and `SKILL.md` differ, `SKILL.md`
+> is authoritative.
+
 ## Purpose
 
 Once a requested flow works, most agents stop. Don't. The goal here is
