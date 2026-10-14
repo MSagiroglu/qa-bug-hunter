@@ -1,4 +1,11 @@
-# Sn-QA-Bug-Hunter (senior-qa-explorer)
+# QABlindspot
+
+*Finds the blind spots you did not think to test.* (Türkçe: *aklınıza gelmeyen
+kör noktaları bulur.*)
+
+> Repository: `Sn-QA-Bug-Hunter` · skill id (used by tools and commands):
+> `senior-qa-explorer` · commands: `/qa-explore`, `/qa-session`. The id stays
+> stable so existing links and installs keep working.
 
 A skill for AI coding agents that turns "test module X" into what a
 senior QA engineer would actually do: find out where it breaks, prove it,
