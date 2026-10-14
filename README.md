@@ -33,8 +33,8 @@ project needs no changes.
 
     git clone https://github.com/MSagiroglu/qa-bug-hunter.git
 
-Link the clone as a skill so your tool reads straight from it (details in
-"Using this in Claude Code" below), then restart the tool:
+Link the clone as a skill so your tool reads straight from it (full steps for every tool in
+"Installation and usage by tool" below), then restart the tool:
 
     # Windows (cmd.exe)      mklink /J "%USERPROFILE%\.claude\skills\senior-qa-explorer" "<path-to-clone>"
     # Windows (PowerShell)   New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\senior-qa-explorer" -Target "<path-to-clone>"
@@ -603,6 +603,22 @@ node dist/cli.js test --url https://app.example.test --headless
 node dist/cli.js analyze --url https://app.example.test
 ```
 
+### Hangi Araçta Nasıl Kurulur (Özet)
+
+| Araç | Ne yapılır |
+|---|---|
+| Claude Code | `~/.claude/skills/senior-qa-explorer` yoluna bağla (Windows cmd: `mklink /J`, PowerShell: `New-Item -ItemType Junction`, macOS/Linux: `ln -s`), yeni oturum aç. Tek proje için `<proje>/.claude/skills/senior-qa-explorer`. |
+| Cursor | Projede `.cursor/rules/qa-explorer.mdc` içine `SKILL.md` yolunu yaz |
+| Codex CLI, Windsurf | Proje kökünde `AGENTS.md` içine `SKILL.md` yolunu yaz |
+| Gemini CLI | `GEMINI.md` içine aynı metin |
+| GitHub Copilot | `.github/copilot-instructions.md` içine aynı metin (klon klasörü çalışma alanında olmalı) |
+| Dosya okuyamayan sohbet araçları | `PORTABLE.md` içeriğini özel talimat olarak yapıştır (test çalıştıramaz, yalnız tasarım/gözden geçirme) |
+
+Ayrıntılar ve doğrulama adımları için yukarıdaki İngilizce "Installation and
+usage by tool" bölümüne bak. Kaldırırken yalnızca bağlantıyı sil:
+Windows'ta `rmdir "%USERPROFILE%\.claude\skills\senior-qa-explorer"`,
+macOS/Linux'ta `rm "$HOME/.claude/skills/senior-qa-explorer"` (`-r` kullanma).
+
 ### Örnek Kullanım Komutları
 
 | Komut (Doğal Dil) | Ne Olur |
@@ -676,92 +692,163 @@ Other
 - `docs/evaluation/` — scored assessment and gap backlog.
 - `agent/` — standalone CLI agent (Node.js + Playwright).
 
-## Install
+## Installation and usage by tool
 
-```bash
-git clone https://github.com/MSagiroglu/qa-bug-hunter.git
-cd qa-bug-hunter
-```
+This section is the complete setup guide. Pick the part for the tool you use.
 
-Put it wherever you keep tools you don't want tied to one project — it's
-not meant to live inside a project repo.
+### What you need
 
-## Using this in Claude Code
+| Need | Required? | Notes |
+|---|---|---|
+| An AI coding tool that can read files and run commands | Yes | Claude Code, Cursor, Codex CLI, Windsurf, Gemini CLI, GitHub Copilot agent mode, ... |
+| `git` | Yes | to clone and update |
+| Node 18+ | For helpers | self-tests, the standalone agent, Playwright scripts (Node 20 recommended) |
+| Playwright browsers | For web work | `npx playwright install chromium`; the skill can also provision them in `~/.qa-bug-hunter/playwright` |
+| k6 | Load mode only | not needed otherwise; always start with `DRY_RUN=1` |
+| A test environment you are allowed to test | Yes | never production, never a shared environment without approval |
 
-Claude Code loads skills from `~/.claude/skills/<name>/SKILL.md`. Link
-this cloned repo there so Claude Code reads straight from it — one source
-of truth, `git pull` updates it everywhere, no copy to keep in sync.
+Works on Windows, macOS and Linux.
 
-**Windows (Command Prompt / cmd.exe — `mklink` is a cmd builtin, not PowerShell):**
-```bat
-mklink /J "%USERPROFILE%\.claude\skills\senior-qa-explorer" "<path-to-cloned-repo>"
-```
+### Step 1 — get the skill
 
-**Windows (PowerShell):**
-```powershell
-New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\senior-qa-explorer" -Target "<path-to-cloned-repo>"
-```
+Clone it once into a permanent folder that is **not** inside a project you test
+(for example `~/tools/qa-bug-hunter`):
 
-**macOS / Linux:**
-```bash
-ln -s "<path-to-cloned-repo>" "$HOME/.claude/skills/senior-qa-explorer"
-```
+    git clone https://github.com/MSagiroglu/qa-bug-hunter.git
 
-**No symlink support / don't want one:** just copy the folder to
-`~/.claude/skills/senior-qa-explorer` instead — it'll work, you'll just
-need to re-copy after pulling updates.
+### Step 2 — connect it to your tool
 
-Restart Claude Code (or start a new session) so it picks up the new
-skill. Invoke with natural language ("test the Create Goal modal for
-bugs") or `/qa-explore <module>`.
+#### Claude Code (native skill, recommended)
 
-## Using this in other AI coding tools
+Claude Code loads skills from a `skills` folder and invokes this one as
+`senior-qa-explorer`. Link the clone so `git pull` updates it everywhere.
 
-Most agentic coding tools (Cursor, Codex CLI, Windsurf, Gemini CLI) read a
-convention file from the *target project* you're working in, not a
-global skills folder — so for these, add a short pointer file to each
-project where you want this available, pointing at wherever you cloned
-this repo. Replace `<path-to-cloned-repo>` with the real path.
+*All your projects (user level):*
 
-**`AGENTS.md`** (repo root — Codex CLI, Windsurf, and others converging
-on this standard):
-```markdown
-## Exploratory QA testing
+    # Windows, Command Prompt (cmd.exe) — mklink is a cmd builtin
+    mklink /J "%USERPROFILE%\.claude\skills\senior-qa-explorer" "<path-to-clone>"
 
-For exploratory / bug-hunting test requests on this repo, read and follow:
+    # Windows, PowerShell
+    New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\senior-qa-explorer" -Target "<path-to-clone>"
 
-    <path-to-cloned-repo>/SKILL.md
+    # macOS / Linux
+    ln -s "<path-to-clone>" "$HOME/.claude/skills/senior-qa-explorer"
 
-It's stack-agnostic and lives outside this repo — read it from that path,
-don't assume its content. For *how* to write/run tests in this repo once
-you know what to test, use this repo's own existing conventions/docs.
-```
+*One project only (project level):* put the same link or a copy at
+`<your-project>/.claude/skills/senior-qa-explorer`. Use this when only that team
+should get the skill; commit a copy, not a link, if you want teammates to receive it.
 
-**`GEMINI.md`** (repo root — Gemini CLI): same content as `AGENTS.md`
-above.
+*No link support:* copy the folder to the same path; re-copy after each update.
 
-**`.cursor/rules/qa-explorer.mdc`** (Cursor):
-```markdown
----
-description: Senior QA exploratory/bug-hunting testing methodology — apply when asked to test a module for bugs or find defects
-globs:
-alwaysApply: false
----
+Then **start a new session** (restart Claude Code). Verify: ask
+`Do you have the senior-qa-explorer skill? Summarize its modes.` The answer
+should list Sweep, Session, API-only and Load. Then run your first charter
+(Step 3). Invoke with natural language, `/qa-explore <module>` or
+`/qa-session "<charter>"`; if your version does not offer the slash form, the
+natural-language form works the same way.
 
-For exploratory / bug-hunting test requests on this repo, read and follow:
+#### Cursor
 
-    <path-to-cloned-repo>/SKILL.md
-```
+Add `.cursor/rules/qa-explorer.mdc` to the project you test:
 
-For tools with no file-convention support at all (a plain chat UI), paste
-`PORTABLE.md` as a custom instruction — it's self-contained.
+    ---
+    description: Senior QA exploratory testing methodology — apply when asked to test a module for bugs
+    globs:
+    alwaysApply: false
+    ---
+    For exploratory / bug-hunting test requests, read and follow:
+    <path-to-clone>/SKILL.md
 
-## Updating
+#### Codex CLI, Windsurf and other tools that read `AGENTS.md`
 
-`git pull` in your clone. If you linked (junction/symlink), that's it —
-every tool reading through the link sees the update immediately. If you
-copied the folder instead, re-copy it. Pointer files in other projects
-(`AGENTS.md`, etc.) don't need to change unless you move the clone.
+Add to `AGENTS.md` in the project root:
+
+    ## Exploratory QA testing
+    For exploratory / bug-hunting test requests, read and follow:
+    <path-to-clone>/SKILL.md
+    It is stack-agnostic and lives outside this repo; read it from that path.
+    For how to write/run tests in this repo, use this repo's own conventions.
+
+#### Gemini CLI
+
+Same text in `GEMINI.md` at the project root.
+
+#### GitHub Copilot (agent mode in an IDE)
+
+Same text in `.github/copilot-instructions.md`. Copilot must be able to read the
+clone path: add the clone folder to the workspace, or use the paste option below.
+
+> Pointer-file names and locations are tool conventions and can change; check
+> your tool's current documentation. The pointer text itself stays the same.
+> For every pointer-file tool, the assistant must be allowed to read
+> `<path-to-clone>` (add it to the workspace or allow-list if asked).
+
+#### Tools that cannot read local files (plain chat UIs)
+
+Paste `PORTABLE.md` as a custom instruction. Limits: no files, no commands, so
+it can help you design and review tests but cannot run them, and it is a frozen
+snapshot (`SKILL.md` is authoritative where they differ).
+
+### Step 3 — run your first session
+
+In any of the tools above, pick one small, risky screen:
+
+    /qa-session "Explore the Create form / with empty, very long and rapid repeated submits / to find duplicate records and missing loading states"
+
+or in plain words: `test the login page for bugs`, `run a QA session on the
+checkout modal`, `test <endpoint list> as API-only`. Read the "Kapsanmayan" (not
+covered) line of the summary first. Details and result labels are in
+"New here? Start in 5 minutes" above.
+
+What to expect: a session is time-boxed (60 minutes by default); web runs open a
+visible browser window when you are watching and run headless when
+unattended; evidence files and a report are written under `docs/qa-reports/` of
+the project you test (add that folder to your project's `.gitignore` if you do
+not want them committed).
+
+### Step 4 (optional) — a domain pack for your own product
+
+Put product knowledge (roles, modules, safety rules) in a private pack outside
+the repo; see "Create your own domain pack" above. It is detected automatically
+when you start the tool inside that product's repo.
+
+### Step 5 (optional) — no AI tool, CI and scheduled runs
+
+The standalone agent needs no AI tool:
+
+    cd agent && npm install && npm run build
+    node dist/cli.js test --url https://app.example.test --suites overlay,api
+
+It runs headless automatically when `CI` or `QA_HEADLESS=1` is set. The `rapid`
+suite fires mutating clicks, so it is opt-in (`--suites rapid`) and belongs only
+on environments you own. Load templates under `templates/k6/` refuse targets
+that are not allowlisted and support `DRY_RUN=1`. Provide credentials through
+environment variables, never in files.
+
+### Using it as a team
+
+- Everyone clones the same repository; pin a version with
+  `git checkout <commit-or-tag>` if you need reproducible runs.
+- Each person keeps their own domain pack outside the repo; share packs through a
+  private channel, never by committing them here.
+- Agree on one environment for exploratory runs and who may run rapid-action,
+  load and authorization-matrix tools there.
+- File findings from the generated tickets; keep candidates labelled as
+  candidates until reproduced.
+
+### Updating and removing
+
+Update: `git pull` in the clone. Linked installs update instantly; copied
+installs must be re-copied.
+
+Remove the link only (never delete recursively through it, that can delete the
+clone's contents):
+
+    # Windows junction (cmd.exe)
+    rmdir "%USERPROFILE%\.claude\skills\senior-qa-explorer"
+
+    # macOS / Linux symlink (no -r flag)
+    rm "$HOME/.claude/skills/senior-qa-explorer"
 
 ## Troubleshooting
 
@@ -775,6 +862,34 @@ copied the folder instead, re-copy it. Pointer files in other projects
 | k6 run is refused | The target is not in the allow file, `LOAD_WINDOW_OK` is not `1`, or credentials are missing. That is the safety gate working. Start with `DRY_RUN=1`. |
 | Rapid-action test hit HTTP 429 | The burst consumed the throttle budget. Lower the burst size; a 429 is itself an observation. |
 | Many findings marked "candidate" | Intended: a heuristic fired. Reproduce each one and state the oracle before filing. |
+
+## Where it can improve next
+
+Honest next steps, roughly in order of value:
+
+1. **Measure on real applications.** Run pilot sessions on a few real apps and
+   record bugs found, false positives, time and tokens. Nothing has been
+   calibrated on production-like systems yet.
+2. **A seeded-bug benchmark.** A small demo app with known planted defects, so
+   each release can be scored on recall and false positives. Today only the
+   helper scripts have self-tests, not the whole skill.
+3. **More than one reviewer.** Re-score with several independent reviewers,
+   including a human test lead, to get an inter-rater range.
+4. **Close the literature gaps.** A named test-implementation activity, a Beizer-
+   style fault taxonomy for classification, the agile testing quadrants and test
+   pyramid, Weinberg-style bias notes.
+5. **Cut context cost.** A short "lite" session profile, and generate
+   `PORTABLE.md` from `SKILL.md` instead of maintaining it by hand.
+6. **Mobile harness.** Runnable templates (for example `adb`-driven interruption
+   scripts and a device-farm recipe) comparable to the web helpers.
+7. **Bug-class memory.** Persist recurring bug classes per project and turn
+   them into permanent checks; generate a regression test from each confirmed
+   defect.
+8. **Pack scaffolding.** A generic `pack-init` tool that scans a repo for
+   routes, roles and test ids and drafts a domain pack.
+9. **Language policy.** Decide on English-only core with Turkish translations, or
+   two parallel folders, so non-Turkish readers lose nothing.
+10. **Releases.** Tagged versions and a changelog so teams can pin a version.
 
 ## Glossary
 
