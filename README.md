@@ -14,6 +14,91 @@ each one as a hypothesis to disprove, collect real evidence when
 something looks wrong, and write up every confirmed defect as a
 paste-ready ticket with the files to attach already sitting next to it.
 
+## New here? Start in 5 minutes
+
+You do not need to know anything about this skill beforehand.
+
+**What it is.** A set of instructions plus helper scripts that make an AI
+coding tool (Claude Code, Cursor, Codex CLI, Windsurf, Gemini CLI, ...) test
+like a careful exploratory tester: form a hypothesis, try to break the app,
+prove what you saw with saved files, and say honestly what was *not* covered.
+
+**What you need.** An AI coding tool that can read files and run commands.
+Node 20+ only if you want the helper scripts, self-tests or the standalone
+agent. Playwright is always the browser engine for web work; the skill
+provisions it in a scratch folder (`~/.qa-bug-hunter/playwright`), so your
+project needs no changes.
+
+**1. Install (once).**
+
+    git clone https://github.com/MSagiroglu/qa-bug-hunter.git
+
+Link the clone as a skill so your tool reads straight from it (details in
+"Using this in Claude Code" below), then restart the tool:
+
+    # Windows (PowerShell)  mklink /J "%USERPROFILE%\.claude\skills\senior-qa-explorer" "<path-to-clone>"
+    # macOS / Linux          ln -s "<path-to-clone>" "$HOME/.claude/skills/senior-qa-explorer"
+
+**2. Check that the helpers work (optional, 1 minute).** From the clone:
+
+    cd agent && npm install && npx playwright install chromium && cd ..
+    node tools/lint-references.mjs
+    node tools/selftest/run-selftest.mjs
+    node tools/selftest/run-rapid-selftest.mjs
+
+Each should end with `0 finding(s)` / `SELFTEST PASSED` / `RAPID SELFTEST PASSED`.
+These prove the helpers on local demo pages; they do not test your product.
+
+**3. Run your first session.** Pick ONE small, risky screen and give a charter,
+a one-sentence mission with three parts: *what to explore / with what / to find
+what*. In your AI tool:
+
+    /qa-session "Explore the Create form / with empty, very long and rapid repeated submits / to find duplicate records and missing loading states"
+
+(The templates use the Turkish labels "Keşfet … / Şununla … / Bulmak için …";
+either language works.) Not sure what to type? Use natural language:
+`test the login page for bugs`, or `/qa-explore <module>` for a full sweep.
+
+**4. Read what you get.** The agent writes a one-page summary and, for each
+finding, a ticket-ready write-up with its evidence files (screenshots, network
+logs, video/trace). Read the **"Kapsanmayan"** (not covered) line first: it
+tells you what was *not* checked. Findings are labelled:
+
+| Label | Meaning | What you do |
+|---|---|---|
+| CONFIRMED DEFECT | an oracle establishes the expected behavior | file it, add a regression test |
+| POTENTIAL DEFECT | suspicious, oracle is weak | ask the owner or find a stronger oracle |
+| BEHAVIOR REQUIRING CLARIFICATION | might be intentional | ask, do not assert |
+| candidate finding | a heuristic fired (e.g. empty submit accepted) | investigate; it is not a verdict |
+| TEST GAP | not covered | schedule it |
+
+**5. Repeat with a new charter.** Ideas noticed during a session go to the
+charters backlog; each becomes the next session.
+
+**Rules of the road (read these once).**
+- Test only environments you are allowed to test. Never run load, injection or
+  rapid-click bursts on production or on a shared environment without approval.
+- Use data the run creates (`TEST_...`) and two test users of your own for
+  permission checks. Existing data is read-only.
+- Credentials: you log in yourself or supply them through environment
+  variables. The skill never writes secrets into the repo or reports.
+- A human watching the run means headed browser; unattended or CI means
+  headless (`CI` or `QA_HEADLESS=1`). Playwright is used in both.
+- Everything the skill derives from reading source code is a candidate until
+  it is reproduced and confirmed with evidence.
+
+### Prompts that work
+
+| You want | Say |
+|---|---|
+| A modal that will not close, background scrolls | `/qa-session "Explore the <name> modal / with keyboard, small viewport and scroll / to find close, focus and scroll-lock failures"` |
+| Double-click / loading-state bugs | `Run the rapid-action burst on every create, update and delete in <module>` |
+| Who can do what | `Build a role x endpoint authorization matrix for <module> using my two test users` |
+| Something with no spec | `Use metamorphic or differential checks on <feature>` |
+| API only | `Test <endpoint list> as API-only` |
+| Under load | `Plan a load check for <module>; dry-run first` (needs an allowlisted target) |
+| What did we miss | `Run the second-opinion pass on the findings and list what was not covered` |
+
 ## What it actually finds
 
 Not "the button is misaligned." The classes of bug this is built to catch
@@ -70,9 +155,14 @@ up on the happy path:
 - **Empty submission defects** — forms that accept all-empty input and
   persist to database, missing backend validation entirely. The fastest
   way to find backend validation gaps with zero effort.
-- **Existing data collision defects** — system data that can be deleted
-  despite downstream references, duplicated despite uniqueness constraints,
-  or accessed across authorization boundaries (IDOR).
+- **Data collision and authorization defects** — duplicates accepted despite
+  uniqueness constraints and access across authorization boundaries (IDOR),
+  tested only with data the run created and two test users of your own;
+  existing data is treated as read-only.
+- **Double-submit and missing in-flight guards** — fast repeated clicks on
+  create/update/delete: is there a loading state, is the control blocked
+  until the request returns, does the same API request go out twice, are
+  duplicate records created, does a second delete fail cleanly.
 - **Type confusion defects** — non-numeric values in numeric fields, HTML
   in plain text fields, script tags in input fields, wrong data types
   causing crashes or data corruption.
@@ -143,46 +233,88 @@ execution path for the target platform, it's required to say so
 explicitly rather than quietly downgrading to a source-only pass without
 flagging it as incomplete.
 
-## Recently added
+## What changed in this release (October 2026)
 
-A previous version of this README carried a "what I'd add next" wishlist
-of five gaps found by reviewing the skill the way a senior QA/dev hybrid
-would. All five are now built: accessibility checks (prompted by a real
-find — the dogfooding run's five broken images all had `alt=""`, and
-nothing was checking for that on purpose), a database-level verification
-tier for persistence claims stronger than an API re-fetch, i18n/
-localization checks, observational (non-pentest) security hygiene, and a
-rule to offer permanent regression coverage for every confirmed defect
-instead of just reporting it once.
+An independent assessment of the previous version scored it **68/100** against
+ISTQB CTFL 4.0 and the exploratory-testing literature (see `docs/evaluation/`).
+This release closes most of the gaps it found. It has **not been re-scored**;
+run the same rubric on a fresh reviewer to measure the improvement.
 
-No specific gap is queued right now. The architecture (one reference
-file per concern, wired into the existing seven phases) is built to take
-the next one whenever it turns up — issues and PRs welcome.
+- **Structure:** one core engine, platform lenses (web, mobile, API), UI
+  invariants, load method, and optional private domain packs.
+  `SKILL.md` is now a router that picks mode, lenses and pack.
+- **Session mode:** charter, 60-minute timebox, tagged notes, one-page summary
+  with a mandatory "not covered" line, charters backlog.
+- **New techniques:** risk register and assumptions register, rapid-action
+  (double-submit / in-flight guard) testing, three-witness API+UI check,
+  role x endpoint authorization matrix, metamorphic/differential testing,
+  second-opinion pass, heuristics and tours, time/data/concurrency/locale
+  dimensions, planning and exit criteria, ISTQB technique mapping and
+  principles, overlay/modal invariants (WAI-ARIA dialog).
+- **Safety:** active injection and XSS material moved behind an authorization
+  banner and reduced to detection-only; load and authorization-matrix tools
+  refuse targets that are not allowlisted and default to dry-run.
+- **Fixes:** assertion-alone "CONFIRMED DEFECT" verdicts became candidate
+  findings routed through the oracle; the hygiene-vs-collision contradiction
+  was resolved; corrupted characters and a duplicate checklist line removed;
+  headed/headless is now "headed when watched, headless when unattended".
+- **Standalone agent:** `--domain`/`--repo` pack detection, `overlay`, `api`
+  and `rapid` suites, no hardcoded site selectors, reflection is not reported
+  as XSS, unsafe browser flags are opt-in.
+- **Self-tests:** the overlay and rapid-action helpers are proven on local
+  good/bad demo pages; the self-test found and fixed two real helper bugs.
+- **Not changed on purpose:** Playwright remains the engine for web work;
+  existing Turkish reference files were not translated.
 
-## Modes, lenses and domain packs (current structure)
+## Modes, lenses and domain packs
 
-- **Modes:** Sweep (default 7-phase pass), Session (`/qa-session "<charter>"`,
-  60-minute charter-driven exploration, one-page summary with a mandatory
-  "Kapsanmayan" line), API-only (no browser required), Load (safety-gated,
-  dry-run first).
+**Which mode when**
+
+| Situation | Mode | How to start |
+|---|---|---|
+| New feature, first look, "what could break?" | Session | `/qa-session "<charter>"` |
+| Systematic pass over a module before release | Sweep (default) | `/qa-explore <module>` |
+| No UI in scope, or API is the main risk | API-only | "test <endpoints> as API-only" (no browser needed) |
+| Capacity, throttling, behavior under load | Load | dry-run first; needs an allowlisted target and approval |
+
 - **Lenses:** `references/lenses/` for web, mobile and API, plus
-  `six-directions.md` (Interrupt, Network, Screen/Shape, State, Data, Permission).
-- **Core techniques:** risk register, rapid-action/double-submit testing
-  (in-flight guard, loading state, duplicate requests), three-witness API+UI
-  verification, role x endpoint authorization matrix, metamorphic/differential
-  testing, second-opinion pass, overlay/modal invariants (WAI-ARIA dialog).
-- **Domain packs (optional, private):** product-specific knowledge lives
-  OUTSIDE this repo in `QA_DOMAIN_PACKS_DIR` or `%USERPROFILE%\.qa-bug-hunter\domains\`
-  (`~/.qa-bug-hunter/domains/` on macOS/Linux). See `references/domains/README.md`.
-  No pack means the skill still works.
+  `six-directions.md` (Interrupt, Network, Screen/Shape, State, Data,
+  Permission). When stuck, pick one direction and go deep instead of running
+  every check.
+- **Core techniques:** see the file list below; each is a short reference the
+  agent reads only when the target needs it.
+- **Domain packs (optional, private):** product-specific knowledge (modules,
+  roles, safety rules, generated inventories) lives OUTSIDE this repo in
+  `QA_DOMAIN_PACKS_DIR` or `%USERPROFILE%\.qa-bug-hunter\domains\`
+  (`~/.qa-bug-hunter/domains/` on macOS/Linux). A pack is detected
+  automatically when the `Markers:` listed in its `pack.md` exist in the repo
+  being tested. No pack means the skill still works. Never commit a pack.
 - **Self-tests:** `node tools/selftest/run-selftest.mjs` (overlay helper) and
-  `node tools/selftest/run-rapid-selftest.mjs` (rapid-action helper) prove the
-  helpers on local demo pages. They validate the helpers, not any real product.
-- **Evaluation:** `docs/evaluation/` holds a scored assessment against ISTQB
-  and exploratory-testing literature and the gap backlog derived from it.
-- **Safety:** active injection/XSS material is out of the default scope and
-  requires written authorization on an owned, non-shared target; load and
-  authorization-matrix tools refuse targets that are not allowlisted.
+  `node tools/selftest/run-rapid-selftest.mjs` (rapid-action helper).
+- **Evaluation:** `docs/evaluation/` holds the scored assessment and gap backlog.
+
+**Create your own domain pack** (for the product you test every day):
+
+1. Copy `references/domains/_template/` to
+   `<packs-dir>/<your-product>/`.
+2. In `pack.md`, set `Markers:` (paths that exist at the product repo root,
+   e.g. a solution file and a test-id folder) and the reading order.
+3. Fill `roles.md` (roles and contextual authorities), `modules.md` (modules to
+   routes/controllers/test ids), `env-safety.md` (shared environments,
+   throttling, what must be mocked).
+4. Optionally add a role x module x action matrix, a settings impact map and a
+   charters backlog. Mark every claim you did not verify as `?` or
+   `unverified`; a static reading of code gives candidates, not defects.
+5. Keep it out of version control. Re-verify evidence references when the
+   product changes.
+
+**Safety in one place**
+- Active injection/XSS material is out of default scope: it needs written
+  authorization on an owned, non-shared target.
+- Load tooling and the authorization-matrix runner require an allowlisted
+  target, send nothing in dry-run mode and respect request budgets.
+- Rapid-action bursts are capped and use only data created by the run.
+- Never place credentials in the repo, in evidence files or in reports.
 
 ## Standalone Agent (NEW)
 
@@ -276,6 +408,42 @@ Reports are saved to `docs/qa-reports/<date>/`:
 
 ## 🇹🇷 Türkçe Kullanım Rehberi
 
+### Hızlı Başlangıç (Skill'i Hiç Bilmeyenler İçin)
+
+1. **Kur:** depoyu klonla, `~/.claude/skills/senior-qa-explorer` yoluna bağla
+   (aşağıdaki "Claude Code ile Kullanım"), aracı yeniden başlat.
+2. **Yardımcıları doğrula (isteğe bağlı):**
+   `cd agent && npm install && npx playwright install chromium && cd ..`, sonra
+   `node tools/lint-references.mjs`, `node tools/selftest/run-selftest.mjs`,
+   `node tools/selftest/run-rapid-selftest.mjs`. Çıktılar `0 finding(s)`,
+   `SELFTEST PASSED`, `RAPID SELFTEST PASSED` olmalı.
+3. **İlk oturum:** küçük ve riskli tek bir ekran seç, üç parçalı bir görev yaz:
+   *Keşfet ne / Şununla ne / Bulmak için ne.*
+
+       /qa-session "Keşfet: Kayıt oluştur formu / Şununla: boş, çok uzun girdi ve hızlı art arda tıklama / Bulmak için: çift kayıt ve eksik loading durumu"
+
+   Ne yazacağını bilmiyorsan: `login sayfasını test et` ya da tam tarama için
+   `/qa-explore <modül>`.
+4. **Çıktıyı oku:** önce **"Kapsanmayan"** satırına bak (neye bakılmadığı).
+   Bulgular `CONFIRMED DEFECT`, `POTENTIAL DEFECT`, `BEHAVIOR REQUIRING
+   CLARIFICATION`, aday bulgu (sezgisel, hüküm değil) ve `TEST GAP` olarak
+   etiketlenir. Aday bulguyu yeniden üret ve kanıtla, sonra raporla.
+5. **Yeni görev:** oturumda fark edilen fikirler charter backlog'una gider,
+   her biri bir sonraki oturum olur.
+
+**Kurallar:** yalnızca test etmeye yetkili olduğun ortamlarda çalış; prod ve
+paylaşımlı ortamda onaysız yük, enjeksiyon veya hızlı tıklama yapma; yalnızca
+oturumun kendi oluşturduğu `TEST_` verisini ve kendi iki test kullanıcını
+kullan; mevcut veri salt okunurdur; giriş bilgilerini sen girersin veya ortam
+değişkeniyle verirsin; kimse izliyorsa headed, gözetimsiz/CI ise headless
+(`CI` veya `QA_HEADLESS=1`), Playwright ikisinde de kullanılır.
+
+**Hızlı tıklama / çift gönderim testi:** her ekleme, güncelleme ve silmede
+eylemi önce 2, sonra 5 kez hızlı tekrarla. Loading göstergesi var mı, istek
+dönene kadar buton kilitleniyor mu, aynı API isteği birden fazla gidiyor mu,
+çift kayıt oluşuyor mu, ikinci silme temiz hata veriyor mu? Ayrıntı:
+`references/core/rapid-action-testing.md`.
+
 ### Kurulum
 
 ```bash
@@ -304,7 +472,7 @@ Skill, AI araçlarına test metodolojisini öğretir. Siz natural language ile "
 **Adım 1: Skill'i kur**
 ```powershell
 # PowerShell'de çalıştır (Windows)
-mklink /J "%USERPROFILE%\.claude\skills\senior-qa-explorer" "C:\Users\musta\Desktop\Sn-QA-Bug-Hunter"
+mklink /J "%USERPROFILE%\.claude\skills\senior-qa-explorer" "<klon-yolu>"
 ```
 
 ```bash
@@ -351,7 +519,7 @@ Proje kökünde `AGENTS.md` oluştur:
 
 For exploratory / bug-hunting test requests on this repo, read and follow:
 
-    C:\Users\musta\Desktop\Sn-QA-Bug-Hunter\SKILL.md
+    <klon-yolu>/SKILL.md
 ```
 
 Sonra doğal dilde:
@@ -363,7 +531,7 @@ login modülünü test et
 ### Terminal'den (AI Gerektirmez)
 
 ```bash
-cd C:\Users\musta\Desktop\Sn-QA-Bug-Hunter\agent
+cd <klon-yolu>/agent
 
 # Tam test
 node dist/cli.js test --url https://www.amazon.com.tr
@@ -410,53 +578,43 @@ node dist/cli.js analyze --url https://www.amazon.com.tr
 
 ## Files
 
-- `SKILL.md` — orchestration: the phases, in order, what to read when.
-- `references/core/discovery.md` — repo/stack discovery checklist (web).
-- `references/lenses/mobile/mobile-discovery.md` — same, for React Native/Flutter/
-  native iOS/Android.
-- `references/core/blackbox-discovery.md` — discovery without source access
-  (DOM/network observation), plus the rule for provisioning your own
-  minimal Playwright/Appium tooling when none exists.
-- `references/core/impact-analysis.md` — ripple-effect testing for shared/
-  library entities: consumer-surface discovery and the created/edited/
-  deleted/deactivated verification matrix.
-- `references/core/test-design-techniques.md` — ISTQB techniques and how to
-  prioritize scenarios by risk instead of maximizing count.
-- `references/core/input-mutation-catalog.md` — mutation menu per semantic
-  input type (web forms).
-- `references/core/advanced-exploratory-attacks.md` — senior QA attack vectors:
-  empty form submission, existing data collision, type confusion, copy-paste
-  attacks, Unicode edge cases, concurrent access, API contract violations.
-- `references/lenses/mobile/mobile-exploratory-considerations.md` — mobile-specific
-  error-guessing (lifecycle, connectivity, permissions, deep links,
-  biometrics, device fragmentation).
-- `references/core/critical-defect-patterns.md` — ghost-success/persistence
-  verification and the interrupted-write scenarios to run it against.
-- `references/core/database-verification.md` — using a database connection
-  (when one's already available) as a stronger persistence oracle than
-  an API/UI re-fetch — read-only, always.
-- `references/lenses/web/accessibility-checks.md` — the a11y pass run once per
-  screen: alt text, labels, keyboard reachability, focus management,
-  heading hierarchy, contrast.
-- `references/lenses/web/i18n-checks.md` — text-overflow, locale-formatting, RTL,
-  and pluralization checks for multi-language apps.
-- `references/core/security-hygiene.md` — observational (non-pentest)
-  security checks: response overexposure, error-message leakage,
-  transport/cookie basics. Explicitly scoped away from anything
-  resembling penetration testing.
-- `references/core/oracle-hierarchy.md` — how to decide what "correct
-  behavior" means when there's no spec.
-- `references/core/defect-classification.md` — taxonomy, severity rubric,
-  required evidence fields.
-- `references/core/evidence-capture.md` — how evidence actually gets written
-  to disk (not just described) for both scripted and interactive tools.
-- `references/core/jira-ticket-template.md` — the per-defect ticket format,
-  field-by-field rules, and a worked example.
-- `references/core/report-template.md` — the overall QA report structure.
-- `PORTABLE.md` — the entire methodology in one self-contained file, no
-  external references — paste it as a system/custom instruction into any
-  AI tool that can't read local files.
-- `agent/` — Standalone CLI agent (Node.js + Playwright).
+Router and rules
+- `SKILL.md` — router and the phases: picks mode, lenses and domain pack.
+- `ENFORCEMENT.md` — checklist that must be completed before and after a run.
+- `PORTABLE.md` — frozen snapshot of the methodology for tools that cannot
+  read files (`SKILL.md` is authoritative where they differ).
+
+`references/core/` — platform-neutral engine
+- Discovery and design: `discovery.md`, `blackbox-discovery.md`,
+  `impact-analysis.md`, `test-design-techniques.md` (ISTQB techniques and
+  mapping), `input-mutation-catalog.md`, `search-testing-patterns.md`,
+  `advanced-exploratory-attacks.md`, `critical-defect-patterns.md`,
+  `database-verification.md`, `security-hygiene.md`, `principles.md`.
+- Oracles and judgment: `oracle-hierarchy.md`, `metamorphic-differential.md`,
+  `heuristics-cheatsheet.md`, `second-opinion.md`.
+- Risk and process: `risk-register.md`, `planning-and-completion.md`,
+  `session-mode.md`, `charters-backlog.md`, `diff-to-charter.md`.
+- Newer techniques: `rapid-action-testing.md`, `perturbation.md`,
+  `perturbation-dimensions.md`, `api-ui-crosscheck.md`, `authz-matrix.md`.
+- Evidence and reporting: `evidence-capture.md`, `defect-classification.md`,
+  `jira-ticket-template.md`, `report-template.md`.
+
+`references/lenses/` — platform specifics
+- `web/` (accessibility, i18n, responsive, shadow DOM, XSS patterns),
+  `mobile/` (discovery, exploratory considerations), `api/` (API lens,
+  backend manipulation tests, active ones behind an authorization banner),
+  `six-directions.md`.
+
+Other
+- `references/invariants/overlay-dialog.md` — 14 modal/overlay checks.
+- `references/load/` — load method, scenarios, assertions, safety gates.
+- `references/domains/` — domain pack contract and an empty template.
+- `templates/` — report/session/charter/risk templates, Playwright helpers
+  (`overlay-invariants`, `rapid-action`, `api-ui-crosscheck`, `authz-matrix`,
+  `metamorphic`, `perturb`, `ui-under-load`) and gated k6 load templates.
+- `tools/` — `lint-references.mjs` and `selftest/` (helper self-tests).
+- `docs/evaluation/` — scored assessment and gap backlog.
+- `agent/` — standalone CLI agent (Node.js + Playwright).
 
 ## Install
 
@@ -539,6 +697,35 @@ For tools with no file-convention support at all (a plain chat UI), paste
 every tool reading through the link sees the update immediately. If you
 copied the folder instead, re-copy it. Pointer files in other projects
 (`AGENTS.md`, etc.) don't need to change unless you move the clone.
+
+## Troubleshooting
+
+| Symptom | Likely cause and fix |
+|---|---|
+| The tool ignores the skill | The link is missing or the tool was not restarted. Check that `~/.claude/skills/senior-qa-explorer/SKILL.md` resolves, then start a new session. |
+| `/qa-session` or `/qa-explore` does nothing | Slash commands depend on the tool; say it in natural language instead ("run a QA session on ..."). |
+| Browser does not open | Unattended mode is active (`CI` or `QA_HEADLESS=1` set) or Playwright browsers are not installed: `npx playwright install chromium`. |
+| Self-test fails to start | Run `cd agent && npm install && npx playwright install chromium` first. |
+| `Domain pack: none` but you have a pack | The pack folder is not in the packs directory, or its `Markers:` paths do not all exist at the repo root. Use `--domain <name>` to force it. |
+| k6 run is refused | The target is not in the allow file, `LOAD_WINDOW_OK` is not `1`, or credentials are missing. That is the safety gate working. Start with `DRY_RUN=1`. |
+| Rapid-action test hit HTTP 429 | The burst consumed the throttle budget. Lower the burst size; a 429 is itself an observation. |
+| Many findings marked "candidate" | Intended: a heuristic fired. Reproduce each one and state the oracle before filing. |
+
+## Glossary
+
+- **Charter:** one-sentence mission: explore what, with what, to find what.
+- **Session (SBTM):** time-boxed exploratory run with notes and a debrief.
+- **Oracle:** the source that says what "correct" is (spec, contract, source,
+  consistency with the rest of the app, or a guess). Weak oracle = lower
+  confidence.
+- **Lens:** platform-specific guidance (web, mobile, API).
+- **Domain pack:** private, product-specific knowledge outside the repo.
+- **Three witnesses:** UI state, network response and an independent re-read
+  must agree after every write.
+- **Rapid action:** repeating a create/update/delete quickly to check the
+  in-flight guard, loading state and duplicate requests.
+- **Candidate finding:** a heuristic fired; not yet a verdict.
+- **Kapsanmayan:** "not covered", the mandatory line in every session summary.
 
 ## License
 
