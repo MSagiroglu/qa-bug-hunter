@@ -177,7 +177,7 @@ fallback).
 
 - Natural language: "test the Create Goal modal," "bul bug," "exploratory
   test yap," etc.
-- Explicit command: `/qa-explore <module/feature>`.
+- Explicit command: `/senior-qa-explorer <module/feature>`.
 
 ## Output
 

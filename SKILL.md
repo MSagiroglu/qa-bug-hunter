@@ -1,7 +1,7 @@
 ---
 name: senior-qa-explorer
 description: Systematic exploratory QA testing for web and mobile apps — turns "test module X" into discovery, ISTQB-based test design, hypothesis-driven execution, evidence collection, and defect classification. Use for finding bugs beyond the happy path, not just confirming a flow works.
-triggers: test this module, exploratory test, find bugs in, qa explore, bul bug, hata bul, test et (senior qa), /qa-explore, /qa-session
+triggers: test this module, exploratory test, find bugs in, qa explore, bul bug, hata bul, test et (senior qa), qa session
 category: testing
 ---
 
@@ -666,10 +666,14 @@ file to learn whether anything critical was found.
 
 - Natural language: "test the Create Goal modal," "X modülünü exploratory
   test et," "bul bug."
-- Explicit (Sweep): `/qa-explore <module or feature>`.
-- Explicit (Session): `/qa-session "<charter>"` — a charter is
-  `Keşfet … / Şununla … / Bulmak için …` (see `templates/charter.md`). If no
-  charter is given, ask for one; do not invent it.
+- Slash command: `/senior-qa-explorer <target or charter>`. The first word may
+  select the mode: `session`, `sweep`, `api` or `load`; the rest is the charter or
+  target. Examples: `/senior-qa-explorer session "Keşfet … / Şununla … / Bulmak için …"`,
+  `/senior-qa-explorer sweep <module>`.
+- Optional shortcut commands (copy `extras/claude-commands/` into
+  `~/.claude/commands/`): `/qa-session "<charter>"` and `/qa-explore <module>`.
+- A charter is `Keşfet … / Şununla … / Bulmak için …` (see
+  `templates/charter.md`). If no charter is given, ask for one; do not invent it.
 
 When the target module/scope is ambiguous, ask before starting Phase 1 — an
 exploratory pass on the wrong feature wastes the whole pipeline.

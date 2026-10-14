@@ -1,6 +1,6 @@
 # Session Modu (Charter Tabanlı Keşif)
 
-Sweep varsayılan moddur. Session modu, tek bir charter etrafında zaman kutulu, hipotez odaklı keşif oturumudur. Çağrı: `/qa-session "<charter>"`.
+Sweep varsayılan moddur. Session modu, tek bir charter etrafında zaman kutulu, hipotez odaklı keşif oturumudur. Çağrı: `/senior-qa-explorer session "<charter>"` (isteğe bağlı kısayol: `/qa-session "<charter>"`, bkz. `extras/claude-commands/`).
 
 ## Charter formülü
 

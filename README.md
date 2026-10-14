@@ -4,7 +4,8 @@
 kör noktaları bulur.*)
 
 > Repository: `Sn-QA-Bug-Hunter` · skill id (used by tools and commands):
-> `senior-qa-explorer` · commands: `/qa-explore`, `/qa-session`. The id stays
+> `senior-qa-explorer` · slash command: `/senior-qa-explorer` (optional
+> shortcuts `/qa-session` and `/qa-explore`, see Installation). The id stays
 > stable so existing links and installs keep working.
 
 A skill for AI coding agents that turns "test module X" into what a
@@ -61,11 +62,11 @@ These prove the helpers on local demo pages; they do not test your product.
 a one-sentence mission with three parts: *what to explore / with what / to find
 what*. In your AI tool:
 
-    /qa-session "Explore the Create form / with empty, very long and rapid repeated submits / to find duplicate records and missing loading states"
+    /senior-qa-explorer session "Explore the Create form / with empty, very long and rapid repeated submits / to find duplicate records and missing loading states"
 
 (The templates use the Turkish labels "Keşfet … / Şununla … / Bulmak için …";
 either language works.) Not sure what to type? Use natural language:
-`test the login page for bugs`, or `/qa-explore <module>` for a full sweep.
+`test the login page for bugs`, or `/senior-qa-explorer sweep <module>` for a full sweep.
 
 **4. Read what you get.** The agent writes a one-page summary and, for each
 finding, a ticket-ready write-up with its evidence files (screenshots, network
@@ -99,7 +100,7 @@ charters backlog; each becomes the next session.
 
 | You want | Say |
 |---|---|
-| A modal that will not close, background scrolls | `/qa-session "Explore the <name> modal / with keyboard, small viewport and scroll / to find close, focus and scroll-lock failures"` |
+| A modal that will not close, background scrolls | `/senior-qa-explorer session "Explore the <name> modal / with keyboard, small viewport and scroll / to find close, focus and scroll-lock failures"` |
 | Double-click / loading-state bugs | `Run the rapid-action burst on every create, update and delete in <module>` |
 | Who can do what | `Build a role x endpoint authorization matrix for <module> using my two test users` |
 | Something with no spec | `Use metamorphic or differential checks on <feature>` |
@@ -290,8 +291,8 @@ production-like application (see "How it maps to the literature" below).
 
 | Situation | Mode | How to start |
 |---|---|---|
-| New feature, first look, "what could break?" | Session | `/qa-session "<charter>"` |
-| Systematic pass over a module before release | Sweep (default) | `/qa-explore <module>` |
+| New feature, first look, "what could break?" | Session | `/senior-qa-explorer session "<charter>"` |
+| Systematic pass over a module before release | Sweep (default) | `/senior-qa-explorer sweep <module>` |
 | No UI in scope, or API is the main risk | API-only | "test <endpoints> as API-only" (no browser needed) |
 | Capacity, throttling, behavior under load | Load | dry-run first; needs an allowlisted target and approval |
 
@@ -482,10 +483,10 @@ Reports are saved to `docs/qa-reports/<date>/`:
 3. **İlk oturum:** küçük ve riskli tek bir ekran seç, üç parçalı bir görev yaz:
    *Keşfet ne / Şununla ne / Bulmak için ne.*
 
-       /qa-session "Keşfet: Kayıt oluştur formu / Şununla: boş, çok uzun girdi ve hızlı art arda tıklama / Bulmak için: çift kayıt ve eksik loading durumu"
+       /senior-qa-explorer session "Keşfet: Kayıt oluştur formu / Şununla: boş, çok uzun girdi ve hızlı art arda tıklama / Bulmak için: çift kayıt ve eksik loading durumu"
 
    Ne yazacağını bilmiyorsan: `login sayfasını test et` ya da tam tarama için
-   `/qa-explore <modül>`.
+   `/senior-qa-explorer sweep <modül>`.
 4. **Çıktıyı oku:** önce **"Kapsanmayan"** satırına bak (neye bakılmadığı).
    Bulgular `CONFIRMED DEFECT`, `POTENTIAL DEFECT`, `BEHAVIOR REQUIRING
    CLARIFICATION`, aday bulgu (sezgisel, hüküm değil) ve `TEST GAP` olarak
@@ -560,8 +561,8 @@ login modülünü test et, hataları bul
 
 Veya explicit komut ile:
 ```
-/qa-explore example.test
-/qa-explore login-page
+/senior-qa-explorer sweep example.test
+/senior-qa-explorer sweep login-page
 ```
 
 ### Doğal Dil ile Kullanım (hangi AI aracı olursa olsun)
@@ -639,8 +640,8 @@ macOS/Linux'ta `rm "$HOME/.claude/skills/senior-qa-explorer"` (`-r` kullanma).
 
 | Komut (Claude Code) | Ne Olur |
 |---------------------|---------|
-| `/qa-explore example.test` | URL bazlı test |
-| `/qa-explore login` | Modül bazlı test |
+| `/senior-qa-explorer sweep example.test` | URL bazlı test |
+| `/senior-qa-explorer sweep login` | Modül bazlı test |
 
 | Komut (Terminal) | Ne Olur |
 |------------------|---------|
@@ -696,6 +697,7 @@ Other
   (`overlay-invariants`, `rapid-action`, `api-ui-crosscheck`, `authz-matrix`,
   `metamorphic`, `perturb`, `ui-under-load`) and gated k6 load templates.
 - `tools/` — `lint-references.mjs` and `selftest/` (helper self-tests).
+- `extras/claude-commands/` — optional `/qa-session` and `/qa-explore` shortcut commands.
 - `docs/evaluation/` — scored assessment and gap backlog.
 - `agent/` — standalone CLI agent (Node.js + Playwright).
 
@@ -750,9 +752,20 @@ should get the skill; commit a copy, not a link, if you want teammates to receiv
 Then **start a new session** (restart Claude Code). Verify: ask
 `Do you have the senior-qa-explorer skill? Summarize its modes.` The answer
 should list Sweep, Session, API-only and Load. Then run your first charter
-(Step 3). Invoke with natural language, `/qa-explore <module>` or
-`/qa-session "<charter>"`; if your version does not offer the slash form, the
-natural-language form works the same way.
+(Step 3). The slash command is the skill name: `/senior-qa-explorer`. Type
+`/senior-qa-explorer session "<charter>"` or `/senior-qa-explorer sweep <module>`,
+or just describe the task in plain words; both work the same way.
+
+*Optional shortcuts.* `/qa-session` and `/qa-explore` are NOT built in. To get
+them, copy the two files in `extras/claude-commands/` into
+`~/.claude/commands/` (instructions in that folder's README) and start a new
+session.
+
+*If you do not see the skill:* confirm the link resolves
+(`~/.claude/skills/senior-qa-explorer/SKILL.md` must open), start a **new**
+session (the list is read at session start), then type `/` and look for
+`senior-qa-explorer`. If it is still missing, ask `Which skills do you have?`
+and see Troubleshooting.
 
 #### Cursor
 
@@ -800,7 +813,7 @@ snapshot (`SKILL.md` is authoritative where they differ).
 
 In any of the tools above, pick one small, risky screen:
 
-    /qa-session "Explore the Create form / with empty, very long and rapid repeated submits / to find duplicate records and missing loading states"
+    /senior-qa-explorer session "Explore the Create form / with empty, very long and rapid repeated submits / to find duplicate records and missing loading states"
 
 or in plain words: `test the login page for bugs`, `run a QA session on the
 checkout modal`, `test <endpoint list> as API-only`. Read the "Kapsanmayan" (not
@@ -862,7 +875,8 @@ clone's contents):
 | Symptom | Likely cause and fix |
 |---|---|
 | The tool ignores the skill | The link is missing or the tool was not restarted. Check that `~/.claude/skills/senior-qa-explorer/SKILL.md` resolves, then start a new session. |
-| `/qa-session` or `/qa-explore` does nothing | Slash commands depend on the tool; say it in natural language instead ("run a QA session on ..."). |
+| `/qa-session` or `/qa-explore` is not offered | They are optional shortcuts, not built in. Use `/senior-qa-explorer session "<charter>"` (the real slash command), say it in plain words, or install the shortcuts from `extras/claude-commands/`. |
+| `/senior-qa-explorer` is not in the `/` menu | The skill list is read when a session starts: open a new session. Then check that `~/.claude/skills/senior-qa-explorer/SKILL.md` opens (a broken junction/symlink is the usual cause) and that `name: senior-qa-explorer` is in its frontmatter. |
 | Browser does not open | Unattended mode is active (`CI` or `QA_HEADLESS=1` set) or Playwright browsers are not installed: `npx playwright install chromium`. |
 | Self-test fails to start | Run `cd agent && npm install && npx playwright install chromium` first. |
 | `Domain pack: none` but you have a pack | The pack folder is not in the packs directory, or its `Markers:` paths do not all exist at the repo root. Use `--domain <name>` to force it. |
