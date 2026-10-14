@@ -262,7 +262,7 @@ node dist/cli.js test --url http://localhost:3000 --suites overlay,api --domain 
 ### Features
 
 - **Video Recording:** Every test session is recorded
-- **Headed Mode:** Tests run in full-screen headed mode by default
+- **Headed Mode:** Tests run in full-screen headed mode by default; headless automatically when `CI` or `QA_HEADLESS=1` is set
 - **Evidence Collection:** Screenshots and video for every test
 - **Jira-Ready Tickets:** Formatted tickets with steps, actual/expected, evidence
 - **Technical Details:** JSON details for each test result

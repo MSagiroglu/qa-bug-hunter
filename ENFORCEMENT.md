@@ -6,11 +6,11 @@
 ## 🚨 CRITICAL RULES ( Bunlar ATLANAMAZ )
 
 ### BROWSER RULES (MANDATORY for UI work; N/A for API-only and Load modes — state the mode in the report header)
-- [ ] **HEADLESS: FALSE** — Browser MUST be visible to user at all times
-- [ ] **FULL SCREEN** — Browser window MUST be maximized/fullscreen
-- [ ] User MUST see every action live: navigation, clicks, inputs, assertions
-- [ ] NO invisible/headless runs — this is non-negotiable
-- [ ] Playwright config: `headless: false`, viewport: `{ width: 1920, height: 1080 }`
+- [ ] **Playwright is the engine** for web work (always)
+- [ ] **Someone is watching → HEADED**: `headless: false`, window maximized/full screen, user sees every action live
+- [ ] **Unattended (CI / scheduled / no human) → HEADLESS**: `headless: true` (when `CI` is set or `QA_HEADLESS=1`)
+- [ ] The chosen mode is stated in the report header; screenshots, video and trace are captured in both modes
+- [ ] Playwright config: `headless` derived from the mode above, viewport: `{ width: 1920, height: 1080 }`
 
 ### BEFORE TESTING (Phase 1)
 - [ ] Source code read (ALL relevant files, not just one)

@@ -84,12 +84,12 @@ npm install @playwright/test
 # Step 4: Install Chrome (Chromium) only
 npx playwright install chromium
 
-# Step 5: Create playwright.config.ts — Chrome HEADED mode
+# Step 5: Create playwright.config.ts — Chrome (headed when watched, headless when unattended)
 cat > playwright.config.ts << 'EOF'
 import { defineConfig } from '@playwright/test';
 export default defineConfig({
   use: {
-    headless: false,          // HEADED — user watches live
+    headless: !!process.env.CI || process.env.QA_HEADLESS === '1',  // headed when watched
     browserName: 'chromium',  // Chrome browser
     screenshot: 'on',
     trace: 'on',
@@ -103,8 +103,9 @@ export default defineConfig({
 EOF
 ```
 
-**CRITICAL: `headless: false` — the browser window MUST be visible.**
-The user sees every action in real-time:
+**When a human is watching, run headed (`headless: false`) so the window is visible.**
+In unattended runs (CI / `QA_HEADLESS=1`) run headless; evidence capture stays on.
+When headed, the user sees every action in real-time:
 - Browser opens Chrome window
 - Navigation to target URL is visible
 - Every click, input, form fill is visible

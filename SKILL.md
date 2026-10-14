@@ -168,26 +168,28 @@ whether the target project has its own test framework:
    npm install @playwright/test
    npx playwright install chromium
    ```
-2. **Browser: Chrome (Chromium) — HEADED MODE IS MANDATORY.**
-   - `headless: false` — browser window MUST be visible to the user at all times.
-   - **FULL SCREEN** — browser window MUST be maximized/fullscreen.
-   - The user sees every action in real-time: navigation, clicks, form fills,
-     screenshots. **NO invisible/headless runs — this is non-negotiable.**
+2. **Browser: Chrome (Chromium) via Playwright — HEADED when someone is watching, HEADLESS when unattended.**
+   - **Playwright is always the execution engine** for web work (this does not change).
+   - A human is watching (interactive/live session): `headless: false`, window
+     maximized/full screen, so the user sees every action in real time.
+   - Unattended run (CI, scheduled batch, no human present): `headless: true`.
+     Selection: headless when the `CI` environment variable is set or
+     `QA_HEADLESS=1`; otherwise headed. State the chosen mode in the report header.
+   - Evidence capture (screenshots, video, trace) is on in BOTH modes.
    - Playwright config:
      ```typescript
      // playwright.config.ts
      import { defineConfig } from '@playwright/test';
+     const headless = !!process.env.CI || process.env.QA_HEADLESS === '1';
      export default defineConfig({
        use: {
-         headless: false,          // HEADED — user watches live
+         headless,                 // headed when watched, headless when unattended
          browserName: 'chromium',  // Chrome
          screenshot: 'on',
          trace: 'on',
          video: 'on',
          viewport: { width: 1920, height: 1080 },  // FULL HD
-         launchOptions: {
-           args: ['--start-maximized'],  // FULL SCREEN
-         },
+         launchOptions: headless ? {} : { args: ['--start-maximized'] },
        },
      });
      ```
@@ -527,7 +529,8 @@ a browser devtools check).
 
 **Headed vs. headless:** if a human is actively watching this run
 (an interactive/live session), run headed — they should be able to see
-what's happening, not just read a transcript afterward.
+what's happening, not just read a transcript afterward. Unattended runs
+(CI, scheduled, no human) run headless. Playwright is the engine in both.
 
 **Cross-browser:** for rendering/layout/JS-engine-related findings, apply
 `references/core/test-design-techniques.md`'s Cross-Browser Verification
