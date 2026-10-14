@@ -331,13 +331,15 @@ input field is.
 
 ## Phase 3 — Test design
 
-**THIS PHASE IS MANDATORY. YOU MUST READ ALL REFERENCE FILES.**
+**THIS PHASE IS MANDATORY. YOU MUST READ THE REQUIRED REFERENCE FILES BELOW.**
 
-### Step 3.1 — Read ALL Reference Files
+### Step 3.1 — Read the Required Reference Files
 
-Read: all of `references/core/`, the selected lens folder(s) under
+Read the numbered files below, plus the selected lens folder(s) under
 `references/lenses/`, `references/invariants/` for UI modes, and the selected
-domain pack's `pack.md` + the files it lists.
+domain pack's `pack.md` + the files it lists. Other files in
+`references/core/` are read only when the target needs them (the "as the
+target requires" list below); do not load all of them by default.
 
 Before designing ANY test, you MUST read these files IN ORDER:
 
@@ -675,7 +677,7 @@ exploratory pass on the wrong feature wastes the whole pipeline.
 ## Completion checklist
 
 - [ ] Phase 1 discovery done before any scenario was written.
-- [ ] ALL reference files read before designing tests.
+- [ ] The required reference files (Step 3.1) were read before designing tests.
 - [ ] Source code traced for complete data flow.
 - [ ] DOM structure analyzed and documented.
 - [ ] Every mutation traces back to something found in source/API/DB.
@@ -721,7 +723,7 @@ exploratory pass on the wrong feature wastes the whole pipeline.
 
 ### Critical Questions (Answer YES or NO)
 
-1. **Did I read ALL reference files before designing tests?** YES/NO
+1. **Did I read the required reference files (Step 3.1) before designing tests?** YES/NO
    - If NO: STOP. Go read them now.
 
 2. **Did I create NEW test data (not use existing production data)?** YES/NO

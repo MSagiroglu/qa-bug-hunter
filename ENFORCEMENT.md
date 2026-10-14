@@ -21,7 +21,7 @@
 - [ ] API endpoints identified
 
 ### DURING TESTING (Phase 3-4)
-- [ ] Reference files read: all of `references/core/`, the selected lens folder(s), `references/invariants/` for UI modes, and the selected domain pack's `pack.md` + files it lists
+- [ ] Required reference files read (the numbered list in SKILL.md Step 3.1, plus conditional files the target needs), the selected lens folder(s), `references/invariants/` for UI modes, and the selected domain pack's `pack.md` + files it lists
 - [ ] Search tests: case sensitivity, partial match, multi-word, debounce
 - [ ] Date filter tests: invalid ranges, boundary values
 - [ ] CRUD tests: empty submit, duplicate, type confusion

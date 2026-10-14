@@ -24,7 +24,7 @@ like a careful exploratory tester: form a hypothesis, try to break the app,
 prove what you saw with saved files, and say honestly what was *not* covered.
 
 **What you need.** An AI coding tool that can read files and run commands.
-Node 20+ only if you want the helper scripts, self-tests or the standalone
+Node 18+ only if you want the helper scripts, self-tests or the standalone
 agent. Playwright is always the browser engine for web work; the skill
 provisions it in a scratch folder (`~/.qa-bug-hunter/playwright`), so your
 project needs no changes.
@@ -36,7 +36,8 @@ project needs no changes.
 Link the clone as a skill so your tool reads straight from it (details in
 "Using this in Claude Code" below), then restart the tool:
 
-    # Windows (PowerShell)  mklink /J "%USERPROFILE%\.claude\skills\senior-qa-explorer" "<path-to-clone>"
+    # Windows (cmd.exe)      mklink /J "%USERPROFILE%\.claude\skills\senior-qa-explorer" "<path-to-clone>"
+    # Windows (PowerShell)   New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\senior-qa-explorer" -Target "<path-to-clone>"
     # macOS / Linux          ln -s "<path-to-clone>" "$HOME/.claude/skills/senior-qa-explorer"
 
 **2. Check that the helpers work (optional, 1 minute).** From the clone:
@@ -113,6 +114,8 @@ up on the happy path:
   endpoint had zero corresponding server-side check, and flagged it
   before writing a single line of test code — because it read where the
   constraint actually lived, not just whether the form looked right.
+  *(Illustrative account from earlier development runs; no evidence
+  artifacts from it are shipped in this repository.)*
 - **Ghost successes.** The UI shows a success toast, but the write never
   actually persisted — or the reverse: it shows an error, but the data
   went in anyway. Neither is visible unless you deliberately verify
@@ -237,8 +240,13 @@ flagging it as incomplete.
 
 An independent assessment of the previous version scored it **68/100** against
 ISTQB CTFL 4.0 and the exploratory-testing literature (see `docs/evaluation/`).
-This release closes most of the gaps it found. It has **not been re-scored**;
-run the same rubric on a fresh reviewer to measure the improvement.
+This release closes most of the gaps it found. A fresh, independent reviewer
+(a separate model instance, same rubric, previous scores hidden until after it
+scored) re-scored it at **92/100**; see `docs/evaluation/2026-10-14-rescore.md`,
+and `docs/evaluation/2026-10-14-readme-audit.md` for a claim-by-claim audit of
+this README. Read the +24 as indicative, not precise: the two scores come from
+different reviewers without calibration, and nothing was run against a
+production-like application (see "How it maps to the literature" below).
 
 - **Structure:** one core engine, platform lenses (web, mobile, API), UI
   invariants, load method, and optional private domain packs.
@@ -251,9 +259,12 @@ run the same rubric on a fresh reviewer to measure the improvement.
   second-opinion pass, heuristics and tours, time/data/concurrency/locale
   dimensions, planning and exit criteria, ISTQB technique mapping and
   principles, overlay/modal invariants (WAI-ARIA dialog).
-- **Safety:** active injection and XSS material moved behind an authorization
-  banner and reduced to detection-only; load and authorization-matrix tools
-  refuse targets that are not allowlisted and default to dry-run.
+- **Safety:** active injection testing is reduced to a detection-only posture
+  (one benign metacharacter, observe error leakage) behind an authorization
+  banner; the XSS payload catalog is gated behind that banner (owned,
+  non-shared targets, written authorization) and must never be run on shared
+  environments. Load and authorization-matrix tools refuse non-allowlisted
+  targets and default to dry-run.
 - **Fixes:** assertion-alone "CONFIRMED DEFECT" verdicts became candidate
   findings routed through the oracle; the hygiene-vs-collision contradiction
   was resolved; corrupted characters and a duplicate checklist line removed;
@@ -315,6 +326,50 @@ run the same rubric on a fresh reviewer to measure the improvement.
   target, send nothing in dry-run mode and respect request budgets.
 - Rapid-action bursts are capped and use only data created by the run.
 - Never place credentials in the repo, in evidence files or in reports.
+
+## How it maps to the literature
+
+Taken from the independent re-score (`docs/evaluation/2026-10-14-rescore.md`).
+"Covered" means a reference file or phase implements it; it does not mean it was
+validated on a production system.
+
+**ISTQB CTFL 4.0 areas**
+
+| Area | Status | Where |
+|---|---|---|
+| 7 principles | Covered | `references/core/principles.md` |
+| Planning, monitoring and control, completion/exit criteria, traceability | Covered | `references/core/planning-and-completion.md` |
+| Analysis, design, execution | Covered | `SKILL.md` phases 1-4, `test-design-techniques.md` |
+| Test implementation (environment/suite build) | Partial | implied in phase 4 and templates, not a named activity |
+| Equivalence partitioning, boundary values, decision table, state transition, use case, pairwise | Covered | `test-design-techniques.md` (with an ISTQB cross-reference table) |
+| White-box concepts | Partial | offered as a code-reading lens (which branches does no test exercise), not measured coverage, by design |
+| Experience-based (error guessing, exploratory, checklist), collaboration-based | Covered | `test-design-techniques.md`, session mode |
+| Risk-based (likelihood x impact, product vs project risk) | Covered | `references/core/risk-register.md` |
+| Defect management and independence | Covered | `defect-classification.md`, `second-opinion.md` |
+| Tool support | Covered | Playwright, k6, standalone agent, helper self-tests |
+
+**Exploratory-testing literature**
+
+| Source | Status |
+|---|---|
+| Kaner (oracles), J. Bach (session-based test management), Whittaker (tours), Hendrickson (heuristics), property-based testing | Covered |
+| Weinberg, Myers, chaos/resilience framing | Partial (spirit present, not cited or not framed that way) |
+| Beizer bug taxonomy, Crispin-Gregory agile testing quadrants, test pyramid | Not covered |
+
+**Known limits (stated plainly)**
+- Nothing here was exercised against a production-like application; helpers are
+  proven only on local good/bad demo pages. Findings derived from reading code
+  are candidates until reproduced.
+- Some reference files are in Turkish on purpose (this repository is also used
+  by a Turkish-speaking team): session mode, charters, parts of the test-design
+  and attack catalogs. A reader or agent that does not read Turkish loses that
+  content.
+- `PORTABLE.md` is a hand-maintained snapshot and is stale; `SKILL.md` is
+  authoritative.
+- Mobile has guidance but no runnable harness like the web helpers; mobile
+  black-box exploration is a known gap.
+- "Playwright is always provisioned" is the intent; an AI agent cannot
+  guarantee it, so the skill requires it to say so when provisioning fails.
 
 ## Standalone Agent (NEW)
 
@@ -470,9 +525,14 @@ Skill, AI araçlarına test metodolojisini öğretir. Siz natural language ile "
 ### Claude Code ile Kullanım
 
 **Adım 1: Skill'i kur**
-```powershell
-# PowerShell'de çalıştır (Windows)
+```bat
+:: Windows (cmd.exe) — mklink bir cmd komutudur, PowerShell'de çalışmaz
 mklink /J "%USERPROFILE%\.claude\skills\senior-qa-explorer" "<klon-yolu>"
+```
+
+```powershell
+# Windows (PowerShell)
+New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\senior-qa-explorer" -Target "<klon-yolu>"
 ```
 
 ```bash
@@ -487,26 +547,26 @@ ln -s "/path/to/qa-bug-hunter" "$HOME/.claude/skills/senior-qa-explorer"
 Doğal dil ile:
 ```
 test the login page for bugs
-amazon.com.tr'yi exploratory test et
+example.test'yi exploratory test et
 login modülünü test et, hataları bul
 ```
 
 Veya explicit komut ile:
 ```
-/qa-explore amazon.com.tr
+/qa-explore example.test
 /qa-explore login-page
 ```
 
-### OpenCode (Bu Araç) ile Kullanım
+### Doğal Dil ile Kullanım (hangi AI aracı olursa olsun)
 
-Doğrudan bana söyle:
+AI aracına doğrudan söyle:
 ```
-Amazon.com.tr'yi test et
+app.example.test'i test et
 ```
 
 Veya:
 ```
-Amazon.com.tr'yi exploratory test et, bulgu raporu çıkar
+app.example.test'i exploratory test et, bulgu raporu çıkar
 Login sayfasını test et, XSS açığı bul
 Responsive test et, mobil uyumluluğu kontrol et
 ```
@@ -534,20 +594,20 @@ login modülünü test et
 cd <klon-yolu>/agent
 
 # Tam test
-node dist/cli.js test --url https://www.amazon.com.tr
+node dist/cli.js test --url https://app.example.test
 
 # Headless (CI/CD için)
-node dist/cli.js test --url https://www.amazon.com.tr --headless
+node dist/cli.js test --url https://app.example.test --headless
 
 # Sadece DOM analizi
-node dist/cli.js analyze --url https://www.amazon.com.tr
+node dist/cli.js analyze --url https://app.example.test
 ```
 
 ### Örnek Kullanım Komutları
 
 | Komut (Doğal Dil) | Ne Olur |
 |-------------------|---------|
-| `Amazon.com.tr'yi test et` | Tam exploratory test |
+| `app.example.test'i test et` | Tam exploratory test |
 | `XSS açığı bul` | Güvenlik testleri odaklı |
 | `Responsive test et` | Mobil/tablet uyumluluk |
 | `Accessibility kontrol et` | Erişilebilirlik testleri |
@@ -556,7 +616,7 @@ node dist/cli.js analyze --url https://www.amazon.com.tr
 
 | Komut (Claude Code) | Ne Olur |
 |---------------------|---------|
-| `/qa-explore amazon.com.tr` | URL bazlı test |
+| `/qa-explore example.test` | URL bazlı test |
 | `/qa-explore login` | Modül bazlı test |
 
 | Komut (Terminal) | Ne Olur |
@@ -632,9 +692,14 @@ Claude Code loads skills from `~/.claude/skills/<name>/SKILL.md`. Link
 this cloned repo there so Claude Code reads straight from it — one source
 of truth, `git pull` updates it everywhere, no copy to keep in sync.
 
-**Windows (PowerShell, run as the same user):**
-```powershell
+**Windows (Command Prompt / cmd.exe — `mklink` is a cmd builtin, not PowerShell):**
+```bat
 mklink /J "%USERPROFILE%\.claude\skills\senior-qa-explorer" "<path-to-cloned-repo>"
+```
+
+**Windows (PowerShell):**
+```powershell
+New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\senior-qa-explorer" -Target "<path-to-cloned-repo>"
 ```
 
 **macOS / Linux:**
