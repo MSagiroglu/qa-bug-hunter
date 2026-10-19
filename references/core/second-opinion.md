@@ -11,6 +11,16 @@ Run after execution and before the report. Purpose: independence and bias contro
 5. **Severity**: re-apply the rubric in `references/core/defect-classification.md` from impact, not surprise.
 6. **Reproduction**: re-run the steps at least 3 times (more if intermittent).
 
+## Causal attribution (separate "what happens" from "why")
+
+A finding can be real while its stated cause is wrong. Before a cause appears in a ticket as fact:
+
+1. Name the variable you believe causes it (a setting, a role, a date, a prior save).
+2. **Change only that variable** on fresh data and repeat. Cause confirmed only if the symptom appears and disappears with the variable; otherwise write the observation without a cause, or label the cause an assessment.
+3. Check for a second explanation that fits the same screenshot (a closed window versus a not-yet-open visibility date can both show the same label).
+4. Read the code path for the claimed cause (`references/core/calculation-verification.md`). Code that shows intended behavior turns the finding into a clarification question or drops it.
+5. If a filed ticket's cause turns out wrong, **edit the ticket** (title, steps, actual result) and say what was corrected; do not leave a misleading cause and do not open a duplicate.
+
 ## Outcomes
 
 - Survives all checks: keep category.

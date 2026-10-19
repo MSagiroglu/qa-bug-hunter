@@ -71,6 +71,17 @@ tool. Two sub-cases:
   (`references/core/jira-ticket-template.md` and `references/core/defect-classification.md`'s confidence
   field both expect this to be stated, not hidden).
 
+## Annotated comparison images (Parity mode, before/after pairs)
+
+A side-by-side image is evidence only if a reader can tell which side is which at a glance. Rules:
+
+1. **Label by environment, never by position.** Every panel header names the environment or state ("Rewrite (new UI)", "Reference (old UI)", "Before save", "After save").
+2. **One color per environment, used consistently across all images** (for example purple = rewrite, blue = reference). Two panels from the **same** environment (before/after) use the **same** color and differ only in the label text. A header color that contradicts the environment shown inside the screenshot (a blue "reference" bar over a screenshot whose own banner says "rewrite") is wrong; check this on every image before attaching.
+3. Burn an environment banner into each screenshot at capture time (a small bar with the host name) so the label survives cropping.
+4. Mark the difference with a box and a short caption; red for the defective state, green for the correct state, regardless of side.
+5. One image per finding when possible, named `<id>-<label>.png`; the ticket names the same file. Re-open the finished image and read every label before delivering it.
+6. If the tracker has no upload tool, deliver the image file to the person filing the ticket in the same message as the ticket link.
+
 ## Applying this
 
 Phase 5 (`SKILL.md`) is where this runs — for every suspicious or

@@ -1,7 +1,7 @@
 ---
 name: senior-qa-explorer
 description: Systematic exploratory QA testing for web and mobile apps — turns "test module X" into discovery, ISTQB-based test design, hypothesis-driven execution, evidence collection, and defect classification. Use for finding bugs beyond the happy path, not just confirming a flow works.
-triggers: test this module, exploratory test, find bugs in, qa explore, bul bug, hata bul, test et (senior qa), qa session
+triggers: test this module, exploratory test, find bugs in, qa explore, bul bug, hata bul, test et (senior qa), qa session, qa parity, compare old and new ui, eski yeni arayüz karşılaştır
 category: testing
 ---
 
@@ -48,6 +48,7 @@ State the chosen mode, lenses and domain pack at the top of the report.
 |------|----------|---------------|
 | Sweep (default) | Systematic pass over a module/page/feature using the phases below | Apply (UI work) |
 | Session | Time-boxed, charter-driven exploration; follow `references/core/session-mode.md`, fill `templates/session-summary.md`, pick a direction from `references/lenses/six-directions.md` | Apply (UI work) |
+| Parity | The same product exists twice (legacy and rewrite, web and mobile) over one backend or dataset; the old side is the reference. Follow `references/core/parity-sweep.md` on top of the Sweep phases; every finding is classed NEW-ONLY / BOTH / INTENDED | Apply (UI work) |
 | API-only | Target has no UI in scope; test the API directly via `references/lenses/api/api-lens.md` | N/A |
 | Load | Load/performance check; follow `references/load/method.md` and `references/load/safety-gates.md` BEFORE any request is sent, use `templates/k6/` (dry-run first). Never run without an explicit, allowlisted target | N/A |
 
@@ -102,7 +103,9 @@ that runs predetermined steps. You are a senior QA engineer who:
    order?
 
 5. **Follows the reference files** for the selected mode/lenses (see Step 3.1).
-   These are NOT optional. Read them ALL before designing tests.
+   The numbered files and the files your mode, lenses and domain pack select
+   are NOT optional; read them before designing tests. Files marked "as the
+   target requires" are read when the target needs them.
 
 6. **Generates tests from source code analysis** — if you see a search
    field, test case sensitivity, partial match, debounce behavior, special
@@ -112,17 +115,18 @@ that runs predetermined steps. You are a senior QA engineer who:
 
 7. **Never stops at "it works"** — always ask "what else could go wrong?"
 
-8. **Enforces SYNCHRONOUS UI updates** — After every create/update/delete
-   operation, the UI MUST reflect the change IMMEDIATELY without requiring
-   a page refresh. If the user must refresh to see their change, that is
-   a DEFECT. Test this by:
+8. **Checks SYNCHRONOUS UI updates** — After every create/update/delete
+   operation, the UI should reflect the change without a page refresh that
+   a real user would not know to perform. Test this by:
    - Performing the operation
    - Waiting for the API response
    - Checking if the UI updated automatically
-   - If not updated and no documented deferred/eventual-consistency behavior
-     explains it: DEFECT (UI not synchronized); if the product documents an
-     async refresh cycle, verify that cycle and classify via the oracle
-   - Document the refresh requirement as a bug
+   - If not updated: **candidate finding**. Distinguish "stale forever" from
+     "updates after the app's own normal refresh cycle", check whether the
+     product documents deferred/eventual consistency, then classify via
+     `references/core/oracle-hierarchy.md`. Confirmed only when an oracle at
+     level 1-6 says the UI should have updated.
+   - Record the refresh requirement and the evidence either way
 
 9. **Maintains TEST DATA HYGIENE** — Tests MUST:
    - Existing data is READ-ONLY: never modify or delete it
@@ -138,20 +142,22 @@ that runs predetermined steps. You are a senior QA engineer who:
 
 Applies to **UI work (web/mobile)**. For **API-only** targets skip Playwright provisioning and headed rules; use the API lens (`references/lenses/api/api-lens.md`).
 
-**MANDATORY TOOLING: Playwright for web testing.**
+**TOOLING: Playwright is the engine for web testing.**
 
-This skill is a methodology with a mandatory execution engine. For web
-testing, **Playwright is always installed and used**, regardless of
-whether the target project has its own test framework:
+This skill is a methodology with one preferred execution engine. For web
+testing, **Playwright drives the browser**, regardless of whether the target
+project has its own test framework:
 
-- **Web**: Playwright is **always provisioned** in a scratch location
-  (`~/.qa-bug-hunter/playwright/`) at the start of every run. The
-  target's existing test framework (Cypress, Jest, etc.) is noted but
-  **never used as a substitute** for Playwright — we need Playwright's
-  capabilities (multi-browser, network interception, screenshot, video,
-  trace) that other frameworks may not provide. The tool goes to the
-  target URL and performs all checks by examining the DOM structure or
-  source code (if provided).
+- **Web**: use Playwright. Reuse a Playwright install the repo or the machine
+  already has; provision one in a scratch location
+  (`~/.qa-bug-hunter/playwright/`) only when none is reachable. The target's
+  own test framework (Cypress, Jest, etc.) is noted, not substituted, because
+  Playwright gives multi-browser, network interception, screenshot, video and
+  trace. **When the user already has a logged-in browser on the target, attach
+  to it** (`chromium.connectOverCDP`, `references/core/automation-reliability.md`)
+  instead of launching a fresh one: no credential handling, real session. The
+  tool goes to the target URL and performs all checks by examining the DOM
+  structure or source code (if provided).
 - **Mobile (iOS/Android, native or React Native/Flutter)**: whatever mobile
   E2E tool discovery finds already configured in the repo (Detox, Appium,
   Maestro, Patrol, XCUITest, Espresso) *and* actually runnable in this
@@ -373,9 +379,19 @@ Then, as the target requires (read the ones that apply, skip the rest):
     test users only; safety gates apply)
 14. `references/core/principles.md`, `references/core/planning-and-completion.md`
     — framing, exit criteria, traceability
+15. `references/core/parity-sweep.md` — Parity mode: two implementations of
+    the same product, reference vs under test, finding scope classes
+16. `references/core/calculation-verification.md` — any computed figure
+    (scores, averages, totals, weights): formula from source, hand
+    calculation on real data, cross-surface consistency matrix
+17. `references/core/render-leak-scan.md` — raw JSON, `[object Object]`,
+    unresolved templates and visible markup on every screen visited
+18. `references/core/automation-reliability.md` — sessions, waits, scenario
+    independence, flake vs defect, cleanup list
 
-**DO NOT SKIP ANY OF THESE FILES.** Each one contains critical information
-for designing effective tests.
+**DO NOT SKIP the numbered files 1-8** and the ones the target triggers in
+the list above; each contains critical information for designing effective
+tests.
 
 ### Step 3.2 — Generate Test Scenarios
 
@@ -440,8 +456,14 @@ Based on source code analysis and reference file reading, generate:
   Does a second delete fail cleanly? See `references/core/rapid-action-testing.md`.
 - Status transitions (active → inactive → active)
 - Permission checks (can user X edit user Y's data?)
-- **SYNCHRONOUS UI UPDATE** (MANDATORY): After create/update/delete, verify
-  UI reflects change IMMEDIATELY without refresh. If refresh needed → DEFECT.
+- **SYNCHRONOUS UI UPDATE** (MANDATORY check): After create/update/delete,
+  verify the UI reflects the change without a refresh a real user would not
+  know to perform. If a refresh is needed → candidate finding; classify via the
+  oracle (see item 8 under AGENTIC BEHAVIOR).
+- **ROUND-TRIP SAVE** (every editable record): open it in each editor that
+  can save it, change nothing meaningful, save, re-read in every surface;
+  nothing else may change shape or value
+  (`references/core/metamorphic-differential.md`).
 
 **Test Data Hygiene (MANDATORY for ALL CRUD tests):**
 - Existing data is READ-ONLY: never modify or delete it
@@ -460,7 +482,13 @@ for mobile-specific error-guessing.
 dependent layout.
 
 **Every screen (once per screen, not per scenario):** run
-`references/lenses/web/accessibility-checks.md`'s page-level pass.
+`references/lenses/web/accessibility-checks.md`'s page-level pass and the
+render leak scan (`references/core/render-leak-scan.md`,
+`templates/playwright/render-leak-scan.ts`).
+
+**Every computed figure (scores, averages, totals):** derive the formula from
+source and hand-calculate it on at least four actors before judging any
+value (`references/core/calculation-verification.md`).
 
 **Multi-language apps:** include `references/lenses/web/i18n-checks.md`'s scenarios.
 
@@ -500,8 +528,9 @@ ANOMALY?     → does observation differ from the oracle (Phase 6)?
 
 **After EACH CRUD operation (create/update/delete), you MUST:**
 1. Verify UI updated SYNCHRONOUSLY (without refresh)
-2. If UI did NOT update automatically → CONFIRMED DEFECT
-3. Document the refresh requirement as a bug
+2. If UI did NOT update automatically → candidate finding; investigate per the
+   loop above and classify via `references/core/oracle-hierarchy.md`
+3. Document the refresh requirement and what the product's own refresh cycle is
 4. Take screenshot before and after to prove the issue
 
 **After EACH write action, apply the three-witness rule** (UI state, network
@@ -667,11 +696,14 @@ file to learn whether anything critical was found.
 - Natural language: "test the Create Goal modal," "X modülünü exploratory
   test et," "bul bug."
 - Slash command: `/senior-qa-explorer <target or charter>`. The first word may
-  select the mode: `session`, `sweep`, `api` or `load`; the rest is the charter or
-  target. Examples: `/senior-qa-explorer session "Keşfet … / Şununla … / Bulmak için …"`,
-  `/senior-qa-explorer sweep <module>`.
+  select the mode: `session`, `sweep`, `parity`, `api` or `load`; the rest is the
+  charter or target. Examples: `/senior-qa-explorer session "Keşfet … / Şununla … / Bulmak için …"`,
+  `/senior-qa-explorer sweep <module>`, `/senior-qa-explorer parity <module>`.
+  With no mode word the default is Sweep.
 - Optional shortcut commands (copy `extras/claude-commands/` into
-  `~/.claude/commands/`): `/qa-session "<charter>"` and `/qa-explore <module>`.
+  `~/.claude/commands/`): `/qa-session "<charter>"` (Session), `/qa-explore <module>`
+  (Sweep) and `/qa-parity <module>` (Parity). They are only presets of the skill
+  call above: same skill, same rules, the mode is chosen for you.
 - A charter is `Keşfet … / Şununla … / Bulmak için …` (see
   `templates/charter.md`). If no charter is given, ask for one; do not invent it.
 
@@ -710,8 +742,15 @@ exploratory pass on the wrong feature wastes the whole pipeline.
 - [ ] Search-specific tests run (case sensitivity, partial match, debounce).
 - [ ] Date filter tests run (invalid ranges, boundary values).
 - [ ] Multi-language tests run if applicable.
-- [ ] SYNCHRONOUS UI UPDATE verified for all CRUD operations.
-- [ ] If UI required refresh → documented as DEFECT.
+- [ ] SYNCHRONOUS UI UPDATE checked for all CRUD operations.
+- [ ] If UI required a refresh → recorded as a candidate finding and classified via the oracle.
+- [ ] Render leak scan run on every screen visited (raw JSON, `[object Object]`, unresolved templates, visible markup).
+- [ ] Computed figures: formula derived from source, hand-calculated on at least four actors, cross-surface matrix filled.
+- [ ] Round-trip save run on every editable record through every editor that can save it.
+- [ ] Parity mode only: every finding classed NEW-ONLY / BOTH / INTENDED / REFERENCE-ONLY; annotated images labeled by environment and re-read.
+- [ ] Every stated root cause confirmed by a controlled change on fresh data, or written as an assessment (`references/core/second-opinion.md`).
+- [ ] Existing tracker tickets for the module listed and excluded before filing; one ticket at a time, evidence image delivered with each.
+- [ ] Scenarios used fresh, disposable data; every created record tracked in one cleanup list.
 - [ ] Test data created with unique identifiers.
 - [ ] ALL test data cleaned up after tests complete.
 - [ ] System state verified same as before testing.
@@ -736,11 +775,11 @@ exploratory pass on the wrong feature wastes the whole pipeline.
 3. **Did I clean up ALL created test data?** YES/NO
    - If NO: STOP. Clean up now before submitting.
 
-4. **Did I verify SYNCHRONOUS UI updates for CRUD operations?** YES/NO
+4. **Did I check SYNCHRONOUS UI updates for CRUD operations?** YES/NO
    - If NO: STOP. Test this now.
 
-5. **If UI required refresh, did I document it as a DEFECT?** YES/NO
-   - If NO: STOP. Document it now.
+5. **If UI required a refresh, did I record it and classify it via the oracle?** YES/NO
+   - If NO: STOP. Record it now.
 
 6. **Did I capture evidence (screenshots, network, console) for each finding?** YES/NO
    - If NO: STOP. Capture evidence now.

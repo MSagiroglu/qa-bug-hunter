@@ -285,6 +285,50 @@ production-like application (see "How it maps to the literature" below).
 - **Not changed on purpose:** Playwright remains the engine for web work;
   existing Turkish reference files were not translated.
 
+## What changed in the November 2026 update (lessons from a real parity run)
+
+Learned from a multi-day comparison of a legacy UI and its rewrite over one backend:
+
+- **Parity mode** (`references/core/parity-sweep.md`): reference vs under-test,
+  findings classed NEW-ONLY / BOTH / INTENDED / REFERENCE-ONLY, round-trip save
+  probe, role chain, wire-format comparison.
+- **Calculation verification** (`references/core/calculation-verification.md`):
+  derive the formula from source, hand-calculate on four or more actors,
+  cross-surface consistency matrix; never assume the "expected" number.
+- **Render leak scan** (`references/core/render-leak-scan.md`,
+  `templates/playwright/render-leak-scan.ts`): raw JSON, `[object Object]`,
+  unresolved templates and visible markup, on every screen visited.
+- **Automation reliability** (`references/core/automation-reliability.md`):
+  attach to the user's logged-in browser, wait on conditions, fresh data per
+  scenario, flake vs defect, one cleanup list.
+- **Causal attribution** in the second-opinion pass: a cause is stated only
+  after a controlled change on fresh data; wrong causes in filed tickets are
+  edited, not duplicated.
+- **Round-trip / idempotent save** and **date vs datetime on the boundary day**
+  added to the metamorphic and perturbation references.
+- **Annotated comparison images** rule (label by environment, one color per
+  environment) in `evidence-capture.md`; **filing workflow** (de-duplicate,
+  one ticket at a time, evidence delivered with each) in `jira-ticket-template.md`.
+- **Fixed contradictions:** "Playwright always provisioned" is now "reuse or
+  attach, provision only if none"; "refresh needed = DEFECT" is now a candidate
+  finding routed through the oracle; "read ALL references" is now scoped to
+  the selected mode, lenses and triggers.
+
+## Three ways to call it (what is the difference?)
+
+All three run the **same skill** with the same rules. They differ only in the
+mode they select.
+
+| Call | Mode it runs | Input | Use it for |
+|---|---|---|---|
+| `/qa-explore <module>` | **Sweep**: all 7 phases systematically over one module, screen or URL | A module, feature or URL | Pre-release pass, "test this whole module" |
+| `/qa-session "<charter>"` | **Session**: time-boxed (about 60 min), one direction, tagged notes, one-page summary with a "not covered" line | A charter: `Keşfet … / Şununla … / Bulmak için …` | First look at a new feature, chasing one suspicion |
+| `/qa-parity <module>` | **Parity**: Sweep plus old-vs-new comparison, findings classed by scope | A module present in both implementations | Verifying a rewrite or migration against the old behavior |
+| `/senior-qa-explorer [mode] <target>` | The skill itself; first word picks `session`, `sweep`, `parity`, `api` or `load`, default Sweep | Mode word + target or charter | The only form that also reaches API-only and Load modes |
+
+The three `qa-*` commands are optional presets (copy them from
+`extras/claude-commands/`); `/senior-qa-explorer` always works.
+
 ## Modes, lenses and domain packs
 
 **Which mode when**
@@ -293,6 +337,7 @@ production-like application (see "How it maps to the literature" below).
 |---|---|---|
 | New feature, first look, "what could break?" | Session | `/senior-qa-explorer session "<charter>"` |
 | Systematic pass over a module before release | Sweep (default) | `/senior-qa-explorer sweep <module>` |
+| Legacy UI and its rewrite over one backend | Parity | `/senior-qa-explorer parity <module>` |
 | No UI in scope, or API is the main risk | API-only | "test <endpoints> as API-only" (no browser needed) |
 | Capacity, throttling, behavior under load | Load | dry-run first; needs an allowlisted target and approval |
 
@@ -648,6 +693,19 @@ macOS/Linux'ta `rm "$HOME/.claude/skills/senior-qa-explorer"` (`-r` kullanma).
 | `node dist/cli.js test --url URL` | Hızlı otomatik test |
 | `node dist/cli.js test --url URL --headless` | Arka plan testi |
 
+### Üç çağırma şekli: fark nedir?
+
+Üçü de **aynı skill'i** çalıştırır; fark yalnızca hangi modu seçtiklerindedir.
+
+| Komut | Mod | Ne verirsin | Ne zaman |
+|---|---|---|---|
+| `/qa-explore <modül>` | **Sweep**: 7 aşamalı sistematik tam tarama | Modül, özellik veya URL | Sürüm öncesi, "bu modülü baştan sona test et" |
+| `/qa-session "<charter>"` | **Session**: ~60 dk, tek yön, notlar, "Kapsanmayan" satırlı tek sayfa özet | `Keşfet … / Şununla … / Bulmak için …` | Yeni özelliğe ilk bakış, tek bir şüpheyi kovalamak |
+| `/qa-parity <modül>` | **Parity**: Sweep + eski/yeni karşılaştırma, bulgular kapsamına göre sınıflanır (sadece yeni / ikisinde de / kasıtlı) | İki arayüzde de bulunan modül | Yeni yazılan arayüzü eskisiyle kıyaslamak |
+| `/senior-qa-explorer [mod] <hedef>` | Skill'in kendisi; ilk kelime `session`, `sweep`, `parity`, `api`, `load` seçer, yazılmazsa Sweep | Mod kelimesi + hedef | API-only ve Load'a ulaşmanın tek yolu |
+
+`qa-*` komutları isteğe bağlı kısayollardır (`extras/claude-commands/` içinden kopyalanır).
+
 ### Ne Zaman Ne Kullanılır?
 
 | Durum | Kullanım |
@@ -679,7 +737,9 @@ Router and rules
 - Risk and process: `risk-register.md`, `planning-and-completion.md`,
   `session-mode.md`, `charters-backlog.md`, `diff-to-charter.md`.
 - Newer techniques: `rapid-action-testing.md`, `perturbation.md`,
-  `perturbation-dimensions.md`, `api-ui-crosscheck.md`, `authz-matrix.md`.
+  `perturbation-dimensions.md`, `api-ui-crosscheck.md`, `authz-matrix.md`,
+  `parity-sweep.md`, `calculation-verification.md`, `render-leak-scan.md`,
+  `automation-reliability.md`.
 - Evidence and reporting: `evidence-capture.md`, `defect-classification.md`,
   `jira-ticket-template.md`, `report-template.md`.
 

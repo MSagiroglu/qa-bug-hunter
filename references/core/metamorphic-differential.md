@@ -20,6 +20,10 @@ the relation. A violation means at least one of the two runs is wrong.
 | Case/whitespace variants of a query | Same results where the product claims to be case-insensitive |
 | Create, delete, re-read | Record absent, aggregates restored |
 | Export vs on-screen data | Same rows and totals |
+| **Round-trip / no-op save**: open an existing record in its editor, change nothing meaningful (or one unrelated field), save, re-read | Every other field is unchanged in shape and value (multilingual values stay structured, dates do not shift, flags and ordering stay). Run it through each editor that can save the record (old and new UI, API) |
+| Save in editor A, read in editor B | Same values and same rendering in both |
+| Idempotent save: save twice in a row | Second save changes nothing (no duplicate rows, no date drift, no reset statuses) |
+| Rename or reconfigure then view dependents | Every screen that displays the changed value shows the new one, none shows raw or stale data |
 
 Procedure: pick the relation, capture both runs (UI or API), compare,
 attach both raw results. Verify with a re-read before reporting

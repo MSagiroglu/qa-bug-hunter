@@ -97,6 +97,18 @@ must correspond to a file that was actually saved; if a piece of evidence
 was only captured interactively and isn't a saved file, say that
 explicitly here instead of listing a path that doesn't exist.
 
+## Filing workflow (when the environment can create tickets directly)
+
+1. **De-duplicate first.** Query the tracker for the module (label, component or text) and list existing tickets. Record the list in the report as the exclusion list; do not file a finding that is already tracked. A tracked ticket with a wrong or incomplete cause is **edited**, not duplicated.
+2. **Number the findings and show the ordered list** before creating anything (title, severity, scope class, evidence file). Then file **one ticket at a time**, only when the user asks for the next one.
+3. **Verify before filing.** Re-run the steps on fresh data and read the code path for the claimed cause (`references/core/second-opinion.md`, `references/core/calculation-verification.md`). A finding that turns out to be by design is dropped or reframed, not filed.
+4. **Use the team's existing template and fields** (type, labels, assignee, priority from the severity rubric, due date, sprint). Copy them from a recent ticket by the same author instead of inventing a layout.
+5. **Language:** write for a non-technical reader in the team's language: role, action, what the user sees, what they expected. No code terms in Steps / Actual / Expected; put code findings in a clearly labeled assessment bullet.
+6. **In the same reply as each filed ticket** give the ticket link and send the evidence image file (name it), because the tracker tool cannot attach files and the person must paste it.
+7. **Scope in the title:** prefix NEW-ONLY findings with the rewrite wording the team uses; BOTH findings carry no prefix and the Environment row names both sides (`references/core/parity-sweep.md`).
+8. **Credentials in tickets:** use only what the team's template already carries for test accounts; never add real credentials the person did not put in the template.
+9. After the batch, give the person the full list in the team's own bulk format (links first, then titles with keys) when they ask for it.
+
 ## Worked example
 
 ```markdown

@@ -26,7 +26,12 @@
 - [ ] Date filter tests: invalid ranges, boundary values
 - [ ] CRUD tests: empty submit, duplicate, type confusion
 - [ ] **SENKRON UI CHECK**: After create/update/delete, UI updated WITHOUT refresh?
-- [ ] If refresh required → DOCUMENTED AS DEFECT
+- [ ] If refresh required → recorded as a candidate finding, classified via the oracle (stale forever vs the app's own refresh cycle)
+- [ ] **Render leak scan** on every screen visited (raw JSON, `[object Object]`, unresolved templates, visible markup)
+- [ ] **Computed figures**: formula from source + hand calculation on 4+ actors before calling a value wrong
+- [ ] **Round-trip save** on every editable record, through every editor that can save it
+- [ ] Root cause stated only after a controlled change on fresh data; otherwise written as an assessment
+- [ ] Parity mode: findings classed NEW-ONLY / BOTH / INTENDED; comparison images labeled by environment
 
 ### TEST DATA RULES (MANDATORY)
 - [ ] Created NEW test data (unique: TEST_<feature>_<timestamp>_<seq>)
@@ -53,7 +58,7 @@
 2. "Mevcut production data'yı değiştirdim mi?" → EVET/HAYIR (olmamalı)
 3. "Oluşturduğum tüm test data'sını sildim mi?" → EVET/HAYIR
 4. "Senkron UI kontrolü yaptım mı?" → EVET/HAYIR
-5. "Refresh gerekiyorsa bunu defect olarak document ettim mi?" → EVET/HAYIR
+5. "Refresh gerekiyorsa bunu kayda alıp oracle ile sınıflandırdım mı?" → EVET/HAYIR
 6. "Her defect için screenshot/network/console aldım mı?" → EVET/HAYIR
 
 ## ⚠️ COMMON FAILURES TO AVOID
@@ -61,6 +66,8 @@
 1. ❌ "Happy path çalışıorum, test bitti" → HAYIR, asıl şimdi başlıyor
 2. ❌ "Mevcut data ile test ediyorum" → HAYIR, yeni data oluştur
 3. ❌ "Test sonunda temizlik yapmıyorum" → HAYIR, mutlaka temizle
-4. ❌ "Refresh yapınca güncellendi, sorun yok" → HAYIR, bu DEFECT
+4. ❌ "Refresh yapınca güncellendi, sorun yok" → HAYIR, aday bulgu: kaydet, oracle ile sınıflandır
+7. ❌ "Beklenen değer bu olmalı" (koda bakmadan) → HAYIR, formülü kaynaktan çıkar, elle hesapla, sonra karar ver
+8. ❌ "Sebep şudur" (kontrollü değişiklik yapmadan) → HAYIR, tek değişkeni değiştir, taze veride tekrarla
 5. ❌ "Reference dosyalarını okumuyorum, biliyorum" → HAYIR, her seferinde oku
 6. ❌ "Screenshot almaya gerek yok, prose yazayım" → HAYIR, delil gerekli

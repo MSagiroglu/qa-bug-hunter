@@ -1,10 +1,11 @@
 # Optional shortcut commands for Claude Code
 
-The skill itself is invoked as `/senior-qa-explorer` (the skill name). These two
-files add short custom slash commands:
+The skill itself is invoked as `/senior-qa-explorer` (the skill name). These
+files add short custom slash commands that only pick the mode for you:
 
 - `/qa-session "<charter>"` runs Session mode.
 - `/qa-explore <module>` runs a Sweep.
+- `/qa-parity <module>` runs a Parity sweep (old vs new implementation).
 
 Install (copy; re-copy after updating the repo):
 
@@ -18,5 +19,5 @@ Install (copy; re-copy after updating the repo):
     mkdir -p ~/.claude/commands && cp extras/claude-commands/qa-*.md ~/.claude/commands/
 
 Start a new Claude Code session afterwards. For one project only, copy them to
-`<project>/.claude/commands/` instead. Remove them by deleting the two files.
+`<project>/.claude/commands/` instead. Remove them by deleting the files.
 They only work together with the linked skill (see the main README).
