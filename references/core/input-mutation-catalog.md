@@ -5,6 +5,13 @@ something discovery actually found** (the field's real type, constraint, or
 business rule) — this list is a menu, not a script to run unconditionally.
 Applying every mutation to every field produces noise, not signal.
 
+## Select / multi-select / autocomplete
+
+See `references/lenses/web/select-controls.md`. Minimum set: 0, 1, 2, 6, many and
+"select all" selections; clear one value; clear all; a long label; a search term
+with partial/uppercase/diacritic/no-match variants; open near the bottom of the
+viewport; open at 320 px and in landscape.
+
 ## String
 
 - empty, whitespace-only

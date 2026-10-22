@@ -388,6 +388,12 @@ Then, as the target requires (read the ones that apply, skip the rest):
     unresolved templates and visible markup on every screen visited
 18. `references/core/automation-reliability.md` — sessions, waits, scenario
     independence, flake vs defect, cleanup list
+19. `references/core/layout-consistency.md` (and `references/lenses/mobile/mobile-layout.md`
+    on mobile) — layout and visual consistency by MEASUREMENT: drift, overflow,
+    centering, alignment, spacing, near-miss colors, contrast, tap targets, across a
+    viewport x orientation x zoom x state matrix; `templates/playwright/layout-scan.ts`
+20. `references/core/screen-health-and-export.md` — per-screen console/network health
+    gate, settle detection before measuring, exported-file cell diff
 
 **DO NOT SKIP the numbered files 1-8** and the ones the target triggers in
 the list above; each contains critical information for designing effective
@@ -431,6 +437,13 @@ Based on source code analysis and reference file reading, generate:
 - Non-existent search (returns empty state, shows message)
 - Debounce behavior (how many keystrokes before search triggers?)
 - Search using values of records visible in the UI (read-only) and `TEST_*` records created in this run
+
+**Select / multi-select / autocomplete scenarios (if any dropdown exists — MANDATORY, read `references/lenses/web/select-controls.md`):**
+- Never test a multi-select with one value only: run 0, 1, 2, 6, many and "select all"; measure control width vs container, neighbouring fields, open panel size
+- Compare option CONTENT with the reference, not only the count: secondary text (position under a name), icons, order, empty state, default value
+- Run the same search terms on both sides and compare the result lists (partial, uppercase, Turkish characters, no match)
+- Search box focus on open, match highlight, keyboard (arrows, Enter, Esc)
+- Panel direction and containment: below/above flip, landscape and 320 px, clipped by the dialog, scrollbar inside the dialog edge
 
 **Date filter scenarios (if date filters exist):**
 - Start date after end date
@@ -485,6 +498,26 @@ dependent layout.
 `references/lenses/web/accessibility-checks.md`'s page-level pass and the
 render leak scan (`references/core/render-leak-scan.md`,
 `templates/playwright/render-leak-scan.ts`).
+
+**Every screen in Parity or redesign work (once per screen and per dialog it opens):** build the element and state inventory in `references/lenses/web/ui-state-parity-checklist.md` — empty / loading / error states (including the empty search result), tooltips and info icons, button icons, scrollbar containment, feedback wording and visibility, toolbar order, and portrait AND landscape responsive. Do not write "explored" until its completeness gate passes; list what was not covered.
+
+**Every dropdown, select, multi-select, autocomplete and menu popup (once per control):** run `references/lenses/web/select-controls.md` — selection-count matrix (including select all), option content parity, search inside the list, panel placement, scrollbar containment. A control tested with a single value is NOT tested.
+
+**Every screen, in every state and at every viewport (layout and visual consistency):** do not
+judge alignment, centering, spacing or color by eye. Wait until the page is settled
+(`templates/playwright/settle.ts`), then run `scanLayout` (`templates/playwright/layout-scan.ts`,
+`references/core/layout-consistency.md`) at the matrix 320x568, 375x812, 812x375, 414x896,
+768x1024, 1024x768, 1280x800, 1536x739, 1920x1080 and 200% zoom, and again in each state that
+changes layout (hover, focus, checked, error, empty, loading, open dropdown or dialog). In Parity
+mode capture both sides at the SAME window size and diff the style signatures. Annotate every
+finding with its measured values. A measurement taken while the page is still moving is
+reported as unsettled, not compared. On mobile also read
+`references/lenses/mobile/mobile-layout.md`.
+
+**Every screen walk (console and network health):** attach the screen health gate
+(`templates/playwright/screen-health-gate.ts`) so errors, 4xx/5xx, slow and duplicate requests are
+recorded per step instead of noticed by luck. **Every exported file:** download from both sides with
+the same filter and diff it (`tools/export-diff.mjs`).
 
 **Every computed figure (scores, averages, totals):** derive the formula from
 source and hand-calculate it on at least four actors before judging any
@@ -740,11 +773,16 @@ exploratory pass on the wrong feature wastes the whole pipeline.
 - [ ] No-oracle areas: a metamorphic/differential relation was tried (`references/core/metamorphic-differential.md`).
 - [ ] Overlay invariants (`references/invariants/overlay-dialog.md`) run on every modal/drawer/popover touched: background scroll lock, ESC, close button reachable, focus trap/restore.
 - [ ] Search-specific tests run (case sensitivity, partial match, debounce).
+- [ ] UI element and state inventory (`references/lenses/web/ui-state-parity-checklist.md`) built for every screen and dialog: empty search result and other states compared with the reference, tooltips/info icons/button icons harvested and compared, scrollbars inside containers, feedback wording and visibility, portrait AND landscape; "not covered" list written.
+- [ ] Every dropdown/select/multi-select/autocomplete checked per `references/lenses/web/select-controls.md`: multi-select run with 0/1/2/6/many/select-all, option content (secondary text, order, empty state) compared with the reference, same search terms run on both sides, search focus/highlight, panel direction and containment, scrollbar inside the container.
 - [ ] Date filter tests run (invalid ranges, boundary values).
 - [ ] Multi-language tests run if applicable.
 - [ ] SYNCHRONOUS UI UPDATE checked for all CRUD operations.
 - [ ] If UI required a refresh → recorded as a candidate finding and classified via the oracle.
 - [ ] Render leak scan run on every screen visited (raw JSON, `[object Object]`, unresolved templates, visible markup).
+- [ ] Layout and visual consistency measured (not eyeballed) on every screen at the viewport x orientation x zoom matrix and in each layout-changing state; measurements taken only when the page was settled; both sides at the same window size in Parity mode.
+- [ ] Screen health gate attached during the walk-through (console errors, 4xx/5xx, slow and duplicate requests) and its counts reported per screen or action.
+- [ ] Every export or download compared cell by cell between the two sides or against the on-screen data.
 - [ ] Computed figures: formula derived from source, hand-calculated on at least four actors, cross-surface matrix filled.
 - [ ] Round-trip save run on every editable record through every editor that can save it.
 - [ ] Parity mode only: every finding classed NEW-ONLY / BOTH / INTENDED / REFERENCE-ONLY; annotated images labeled by environment and re-read.
