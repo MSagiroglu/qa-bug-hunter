@@ -107,6 +107,9 @@ charters backlog; each becomes the next session.
 | API only | `Test <endpoint list> as API-only` |
 | Under load | `Plan a load check for <module>; dry-run first` (needs an allowlisted target) |
 | What did we miss | `Run the second-opinion pass on the findings and list what was not covered` |
+| Layout and visual consistency | `Run the layout scan on <screen> at phone, tablet and desktop, portrait and landscape, and list drift, overflow, misalignment and near-miss colors` |
+| Old UI against new UI | `/qa-parity <module>` |
+| Duplicate or failing requests | `Attach the screen health gate while you walk through <module>` |
 
 ## What it actually finds
 
@@ -285,7 +288,7 @@ production-like application (see "How it maps to the literature" below).
 - **Not changed on purpose:** Playwright remains the engine for web work;
   existing Turkish reference files were not translated.
 
-## What changed in the November 2026 update (lessons from a real parity run)
+## What changed in the 19 October 2026 update (lessons from a real parity run)
 
 Learned from a multi-day comparison of a legacy UI and its rewrite over one backend:
 
@@ -314,20 +317,96 @@ Learned from a multi-day comparison of a legacy UI and its rewrite over one back
   finding routed through the oracle; "read ALL references" is now scoped to
   the selected mode, lenses and triggers.
 
-## Three ways to call it (what is the difference?)
+## What changed in the 22 October 2026 update (lessons from ten days of daily use)
 
-All three run the **same skill** with the same rules. They differ only in the
-mode they select.
+Ten days of daily use on a multi-module legacy-vs-rewrite effort produced about
+two hundred findings. Roughly 44% were visual, layout, responsive or text
+differences, and about one finding in five was only found after the owner pushed
+back. Most of those misses could have been caught mechanically. This update
+turns that into tooling and rules (details: `docs/analysis/2026-10-22-usage-analysis-and-roadmap.md`).
 
-| Call | Mode it runs | Input | Use it for |
+- **Layout and visual consistency scan** (`references/core/layout-consistency.md`,
+  `references/lenses/mobile/mobile-layout.md`, `templates/playwright/layout-scan.ts`):
+  measures instead of eyeballing: horizontal scroll, elements beyond the viewport or
+  their container, clipped text, overlaps, centering and alignment near-misses (1 to 4 px),
+  uneven gaps, same-role controls of different size, near-miss colors, contrast, tap targets.
+  Runs over a viewport x orientation x zoom matrix, annotates screenshots, and produces a
+  style signature you can diff between two sides in Parity mode. Proven by a self-test that
+  seeds defects and checks a page of legitimate patterns stays clean.
+- **Screen health gate, settle detection and export diff** (`templates/playwright/screen-health-gate.ts`,
+  `templates/playwright/settle.ts`, `tools/export-diff.mjs`): console and network health per screen
+  (errors, 4xx/5xx, slow and duplicate requests), "wait until the page is stable before measuring",
+  and a CSV/TSV cell-level diff for exported files.
+- **Select and multi-select controls** (`references/lenses/web/select-controls.md`): 0/1/2/6/many/all
+  selections, option content versus the reference, search inside the list, panel placement.
+- **Screen element and state inventory** (`references/lenses/web/ui-state-parity-checklist.md`) and a
+  mandatory **parity coverage matrix** (`references/core/parity-coverage-matrix.md`): empty, loading and
+  error states, tooltips, icons, scrollbars, landscape, "not tested" is a to-do and not an excuse.
+- **ENFORCEMENT** gained anti-patterns for the exact shortcuts that were caught ("looked fine at one width",
+  "colors look the same", "the whole exploration is done").
+- **Private product commands** are documented as a local convention (see "Private product commands"
+  below); nothing product-specific belongs in this repository.
+
+## Four ways to call it, and what you can do with them
+
+All four run the **same skill** with the same rules. They differ only in the mode
+they select. Each one asks you for missing input instead of inventing it.
+
+| Call | Mode it selects | Input | What happens |
 |---|---|---|---|
-| `/qa-explore <module>` | **Sweep**: all 7 phases systematically over one module, screen or URL | A module, feature or URL | Pre-release pass, "test this whole module" |
-| `/qa-session "<charter>"` | **Session**: time-boxed (about 60 min), one direction, tagged notes, one-page summary with a "not covered" line | A charter: `Keşfet … / Şununla … / Bulmak için …` | First look at a new feature, chasing one suspicion |
-| `/qa-parity <module>` | **Parity**: Sweep plus old-vs-new comparison, findings classed by scope | A module present in both implementations | Verifying a rewrite or migration against the old behavior |
-| `/senior-qa-explorer [mode] <target>` | The skill itself; first word picks `session`, `sweep`, `parity`, `api` or `load`, default Sweep | Mode word + target or charter | The only form that also reaches API-only and Load modes |
+| `/qa-explore <module>` | **Sweep**: all 7 phases over one module, screen or URL | A module, feature or URL | Discovery, test model, ISTQB-based design, execution, evidence, classification, full report and tickets. Ask-back: which module if the target is empty or ambiguous |
+| `/qa-session "<charter>"` | **Session**: time-boxed (about 60 min), one direction | A charter: `Keşfet ... / Şununla ... / Bulmak için ...` | Tagged notes while you explore, a one-page summary with a mandatory "not covered" line and a next-charter line. Ask-back: asks for a charter, never invents one |
+| `/qa-parity <module>` | **Parity**: Sweep plus old-versus-new comparison | A module present in both implementations | Asks which side is the reference, which is under test, which environment serves each; builds the coverage matrix; both sides at the same window size; every difference classed NEW-ONLY / BOTH / INTENDED / REFERENCE-ONLY; annotated images; tracker de-duplication before filing |
+| `/senior-qa-explorer [mode] <target>` | The skill itself: first word picks `session`, `sweep`, `parity`, `api` or `load` (default Sweep) | Mode word + target or charter | The only form that also reaches **API-only** and **Load**, and the only one that needs no extra file |
 
-The three `qa-*` commands are optional presets (copy them from
-`extras/claude-commands/`); `/senior-qa-explorer` always works.
+The three `qa-*` commands are optional presets: copy them from `extras/claude-commands/`
+into `~/.claude/commands/`. `/senior-qa-explorer` always works. Besides these four there are
+three more entry points: plain words ("test the login page for bugs", the skill picks the mode),
+the standalone agent (`agent/`, no AI tool needed, good for CI), and pointer files for other
+AI tools (Cursor, Codex CLI, Windsurf, Gemini CLI, Copilot) described in "Installation and usage by tool".
+
+### What people can do with it
+
+| I want to ... | Call | What the skill does | You get |
+|---|---|---|---|
+| Take a first look at a new feature and find what I would not think of | `/qa-session` | One charter, one direction (interrupt, network, screen, state, data, permission), tagged notes | One-page summary, tickets, "not covered", next charters |
+| Run a systematic pre-release pass over a module | `/qa-explore` | 7 phases, risk register, oracle per finding, second-opinion pass | Full report, paste-ready tickets, evidence files |
+| Verify a rewrite or migration against the old behavior | `/qa-parity` | Same steps on both sides, coverage matrix, scope classes, round-trip save, calculation checks | NEW-ONLY / BOTH lists, annotated comparison images, "not tested" list |
+| Find drifting, overflowing, off-center or misaligned elements, uneven spacing, near-identical colors, bad responsive behavior | any mode, say "run the layout scan" | Measures every screen at a viewport x orientation x zoom matrix and in each state; flags 1 to 4 px misalignment, near-miss colors, contrast, tap targets; diffs the style signature of two sides | Numbered findings with measured values and annotated screenshots |
+| Catch duplicate, slow or failing requests and console errors | any mode, say "attach the screen health gate" | Records errors, 4xx/5xx, slow and duplicate requests per screen or step | Counts per action, lead list to classify |
+| Check that numbers (scores, totals, averages) are right | any mode | Derives the formula from source, hand-calculates on 4+ actors, compares every surface | Cross-surface consistency matrix |
+| Find double-click and missing-loading-state bugs | any mode | Bursts of 2x and 5x on create/update/delete, request count, in-flight guard | Per-action table |
+| Compare exported files between two sides | any mode, say "diff the exports" | Same filter on both sides, download, cell-level diff | Row/column coordinates of every difference |
+| Test an API without a UI | `/senior-qa-explorer api` | Role x endpoint matrix with your own users, contract violations, three-witness check | Mismatch list, curl-ready reproductions |
+| Plan a load or capacity check | `/senior-qa-explorer load` | Safety gates and dry-run first; refuses targets that are not allowlisted | Plan, assertions, dry-run output |
+| Test a mobile app or a mobile web view | any mode, say "use the mobile layout lens" | Device matrix, safe areas, dynamic type, orientation, tap targets, bounds read without eyeballing | Findings per device/orientation, honest "cannot verify without a device" list |
+
+### Private product commands (never in this repository)
+
+This repository is generic and public. Everything that belongs to **your** product stays on
+your machine: environment URLs, role-chain tricks, ticket naming rules, module names, test
+accounts, lessons learned.
+
+1. Keep a private domain pack outside the repository (`<packs-dir>/<your-product>/`, see
+   "Create your own domain pack").
+2. Put product presets in `<packs-dir>/<your-product>/commands/<preset>.md`. A preset is just a
+   command file that tells the skill which mode, which pack and which fixed setup to use, for example:
+
+       ---
+       description: [MY PRODUCT] parity of the new UI against the old UI
+       argument-hint: <module>
+       ---
+       Use the `senior-qa-explorer` skill in Parity mode with the `<your-product>` domain pack.
+       Target: $ARGUMENTS
+       Under test: <new UI environment>. Reference: <old UI environment>. Same window size on both.
+       Fresh `TEST_` data only; never type passwords; list existing tickets before filing.
+
+3. Copy the preset to `~/.claude/commands/` (or `<project>/.claude/commands/`). It now appears as
+   its own slash command. Nothing is committed anywhere.
+4. Optional but recommended: install the guard in `extras/git-hooks/` as `.git/hooks/pre-commit` and list
+   your product's terms (names, hostnames, module names, ticket prefixes), one regular expression per line,
+   in `.git/private-patterns`. It blocks a commit whose added lines contain any of them, and it fails
+   closed if the check itself errors. Neither the hook nor the pattern file is versioned.
 
 ## Modes, lenses and domain packs
 
@@ -498,6 +577,9 @@ node dist/cli.js test --url http://localhost:3000 --suites overlay,api --domain 
 | Responsive | 3 | Mobile (375px), Tablet (768px), Desktop (1920px) |
 | Accessibility | 3 | Alt text, Form labels, Heading hierarchy |
 | Navigation | 2 | Broken links (internal only), Console errors |
+| Layout (`-s layout`) | measured | Layout and visual consistency at 375x812, 812x375, 768x1024, 1280x800, 1920x1080: horizontal scroll, overflow, clipping, overlap, centering and alignment near-misses, uneven gaps, same-role size variance, near-miss colors, contrast, tap targets. Read-only; reuses `templates/playwright/layout-scan.ts` |
+| Health (`-s health`) | measured | Console errors, uncaught exceptions, 4xx/5xx, slow and duplicate requests while the page loads and settles. Read-only; reuses `templates/playwright/screen-health-gate.ts` |
+| Overlay / API / Rapid | measured | `overlay` (14 modal checks), `api` (replay of the run's own writes without credentials), `rapid` (bursts on create/update/delete, opt-in) |
 
 ### Features
 
@@ -693,18 +775,22 @@ macOS/Linux'ta `rm "$HOME/.claude/skills/senior-qa-explorer"` (`-r` kullanma).
 | `node dist/cli.js test --url URL` | Hızlı otomatik test |
 | `node dist/cli.js test --url URL --headless` | Arka plan testi |
 
-### Üç çağırma şekli: fark nedir?
+### Dört çağırma şekli ve neler yapılabilir
 
-Üçü de **aynı skill'i** çalıştırır; fark yalnızca hangi modu seçtiklerindedir.
+Dördü de **aynı skill'i** çalıştırır; fark yalnızca hangi modu hazır seçtiklerindedir. Eksik girdide hiçbiri uydurmaz, sorar.
 
-| Komut | Mod | Ne verirsin | Ne zaman |
+| Komut | Mod | Ne verirsin | Ne olur |
 |---|---|---|---|
-| `/qa-explore <modül>` | **Sweep**: 7 aşamalı sistematik tam tarama | Modül, özellik veya URL | Sürüm öncesi, "bu modülü baştan sona test et" |
-| `/qa-session "<charter>"` | **Session**: ~60 dk, tek yön, notlar, "Kapsanmayan" satırlı tek sayfa özet | `Keşfet … / Şununla … / Bulmak için …` | Yeni özelliğe ilk bakış, tek bir şüpheyi kovalamak |
-| `/qa-parity <modül>` | **Parity**: Sweep + eski/yeni karşılaştırma, bulgular kapsamına göre sınıflanır (sadece yeni / ikisinde de / kasıtlı) | İki arayüzde de bulunan modül | Yeni yazılan arayüzü eskisiyle kıyaslamak |
-| `/senior-qa-explorer [mod] <hedef>` | Skill'in kendisi; ilk kelime `session`, `sweep`, `parity`, `api`, `load` seçer, yazılmazsa Sweep | Mod kelimesi + hedef | API-only ve Load'a ulaşmanın tek yolu |
+| `/qa-explore <modül>` | **Sweep**: 7 aşamalı sistematik tam tarama | Modül, özellik veya URL | Keşif, test modeli, ISTQB tasarımı, yürütme, kanıt, sınıflandırma, tam rapor ve biletler |
+| `/qa-session "<charter>"` | **Session**: ~60 dk, tek yön | `Keşfet … / Şununla … / Bulmak için …` | Etiketli notlar, "Kapsanmayan" ve "Sonraki görev" satırlı tek sayfa özet |
+| `/qa-parity <modül>` | **Parity**: Sweep + eski/yeni karşılaştırma | İki arayüzde de bulunan modül | Referans/test edilen/ortam sorulur; kapsam matrisi; iki taraf aynı pencere boyutunda; her fark sınıflanır (sadece yeni / ikisinde de / kasıtlı / sadece referans) |
+| `/senior-qa-explorer [mod] <hedef>` | Skill'in kendisi; ilk kelime `session`, `sweep`, `parity`, `api`, `load` | Mod kelimesi + hedef | **API-only ve Load'a ulaşmanın tek yolu**, ek dosya gerektirmez |
 
-`qa-*` komutları isteğe bağlı kısayollardır (`extras/claude-commands/` içinden kopyalanır).
+`qa-*` komutları isteğe bağlı kısayollardır (`extras/claude-commands/` içinden `~/.claude/commands/` altına kopyalanır). Ayrıca düz cümle, bağımsız ajan (`agent/`, CI için) ve diğer araçlardaki işaretçi dosyalar da giriş noktalarıdır.
+
+**Neler yapılabilir:** yeni özelliğe ilk bakış (`/qa-session`), sürüm öncesi tam tarama (`/qa-explore`), yeniden yazım doğrulaması (`/qa-parity`), **düzen ve görsel tutarlılık taraması** (kayma, taşma, ortalama, hizalama, aralık, neredeyse aynı renkler, responsive; viewport × yön × zoom matrisinde ölçerek), ekran sağlık kapısı (hata, yavaş ve çift istek), sayı/hesap doğrulama, çift tıklama ve yükleniyor durumu, dışa aktarılan dosya karşılaştırması, API testi (`api`), yük planı (`load`), mobil düzen.
+
+**Ürününüze özel komutlar depoya girmez:** URL'ler, rol zinciri, bilet kuralları, modül adları, test hesapları özel domain paketinizde (`<paket>/commands/`) durur; oradan `~/.claude/commands/` altına kopyalarsınız. Sızıntıya karşı `extras/git-hooks/` içindeki isteğe bağlı koruma betiğini ve `.git/private-patterns` dosyasını kullanın (ikisi de sürümlenmez).
 
 ### Ne Zaman Ne Kullanılır?
 
@@ -738,14 +824,16 @@ Router and rules
   `session-mode.md`, `charters-backlog.md`, `diff-to-charter.md`.
 - Newer techniques: `rapid-action-testing.md`, `perturbation.md`,
   `perturbation-dimensions.md`, `api-ui-crosscheck.md`, `authz-matrix.md`,
-  `parity-sweep.md`, `calculation-verification.md`, `render-leak-scan.md`,
-  `automation-reliability.md`.
+  `parity-sweep.md`, `parity-coverage-matrix.md`, `calculation-verification.md`,
+  `render-leak-scan.md`, `automation-reliability.md`, `layout-consistency.md`,
+  `screen-health-and-export.md`.
 - Evidence and reporting: `evidence-capture.md`, `defect-classification.md`,
   `jira-ticket-template.md`, `report-template.md`.
 
 `references/lenses/` — platform specifics
-- `web/` (accessibility, i18n, responsive, shadow DOM, XSS patterns),
-  `mobile/` (discovery, exploratory considerations), `api/` (API lens,
+- `web/` (accessibility, i18n, responsive, shadow DOM, XSS patterns, select controls,
+  UI element and state inventory),
+  `mobile/` (discovery, exploratory considerations, mobile layout), `api/` (API lens,
   backend manipulation tests, active ones behind an authorization banner),
   `six-directions.md`.
 
@@ -755,10 +843,14 @@ Other
 - `references/domains/` — domain pack contract and an empty template.
 - `templates/` — report/session/charter/risk templates, Playwright helpers
   (`overlay-invariants`, `rapid-action`, `api-ui-crosscheck`, `authz-matrix`,
-  `metamorphic`, `perturb`, `ui-under-load`) and gated k6 load templates.
-- `tools/` — `lint-references.mjs` and `selftest/` (helper self-tests).
-- `extras/claude-commands/` — optional `/qa-session` and `/qa-explore` shortcut commands.
+  `metamorphic`, `perturb`, `ui-under-load`, `render-leak-scan`, `layout-scan`,
+  `screen-health-gate`, `settle`) and gated k6 load templates.
+- `tools/` — `lint-references.mjs`, `export-diff.mjs` (CSV/TSV cell diff) and `selftest/`
+  (self-tests for the overlay, rapid-action, layout and health helpers).
+- `extras/claude-commands/` — optional `/qa-session`, `/qa-explore` and `/qa-parity` shortcut commands.
+- `extras/git-hooks/` — optional pre-commit guard against leaking product-specific strings.
 - `docs/evaluation/` — scored assessment and gap backlog.
+- `docs/analysis/` — usage analysis and prioritized roadmap.
 - `agent/` — standalone CLI agent (Node.js + Playwright).
 
 ## Installation and usage by tool
@@ -946,7 +1038,15 @@ clone's contents):
 
 ## Where it can improve next
 
-Honest next steps, roughly in order of value:
+A detailed, evidence-based roadmap (16 items with value, effort, dependencies and how each
+would be verified) is in `docs/analysis/2026-10-22-usage-analysis-and-roadmap.md`. Already
+built from it: the layout and visual consistency scan with viewport/orientation/zoom matrix and
+style-signature diff, the screen health gate, settle detection, and the export diff. Still open
+from it, roughly in order of value: per-state screenshot and style harvest, design-token
+conformance audit, keyboard-only walkthrough, i18n long-text stress, dark-mode sweep, HTML report
+generator, flaky-run detection, a mobile device-farm recipe and a seeded-defect layout benchmark.
+
+Other honest next steps, roughly in order of value:
 
 1. **Measure on real applications.** Run pilot sessions on a few real apps and
    record bugs found, false positives, time and tokens. Nothing has been

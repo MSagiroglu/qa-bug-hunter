@@ -40,6 +40,9 @@ When a pack is selected, read its `pack.md` and every file it lists.
 | `load-profile.md` | optional | Realistic load shape and safe targets for Load mode |
 | `generated/` | optional | Machine-written inventories; never edited by hand |
 | `tools/` | optional | Generator scripts that (re)write `generated/` |
+| `lessons-*.md` | optional | Product-specific lessons from real runs: formulas, traps, automation notes, environment quirks |
+| `commands/` | optional | Product-specific slash-command presets (mode + fixed setup). The user copies them to `~/.claude/commands/`; they are never committed to the skill repository |
+| `usage-analysis-*.md` | optional | Private analysis of how the skill was used on this product (misses, patterns) |
 
 ## `pack.md` header
 

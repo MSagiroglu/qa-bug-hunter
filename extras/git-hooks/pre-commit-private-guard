@@ -1,0 +1,29 @@
+#!/bin/sh
+# Optional guard: block product-specific strings from entering a repository you share (for example a clone or fork of this skill).
+# Patterns live in .git/private-patterns (one extended regex per line). Checks ADDED lines only.
+# FAIL CLOSED: if grep itself errors (exit > 1) the commit is blocked, never silently allowed.
+# Each pattern is tried separately (a combined `grep -f` aborts on non-ASCII patterns on some Windows builds).
+# Bypass deliberately with: git commit --no-verify   (do not, unless you mean it)
+root=$(git rev-parse --show-toplevel)
+pf="$root/.git/private-patterns"
+[ -f "$pf" ] || { echo "pre-commit: BLOCKED — $pf is missing (guard cannot run)" >&2; exit 1; }
+
+added=$(mktemp)
+git diff --cached -U0 --no-color | grep -E '^\+[^+]' > "$added"
+status=0
+while IFS= read -r p || [ -n "$p" ]; do
+  p=$(printf '%s' "$p" | tr -d '\r')
+  [ -z "$p" ] && continue
+  out=$(grep -i -E -e "$p" "$added" 2>&1)
+  rc=$?
+  if [ $rc -gt 1 ]; then
+    echo "pre-commit: BLOCKED — grep failed (exit $rc) on pattern: $p" >&2
+    status=1
+  elif [ $rc -eq 0 ]; then
+    echo "pre-commit: BLOCKED — staged additions match private pattern '$p':" >&2
+    printf '%s\n' "$out" | head -3 | cut -c1-150 >&2
+    status=1
+  fi
+done < "$pf"
+rm -f "$added"
+exit $status
