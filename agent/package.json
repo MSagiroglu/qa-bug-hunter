@@ -5,8 +5,11 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
+    "sync-templates": "node scripts/sync-templates.mjs",
+    "prebuild": "node scripts/sync-templates.mjs",
     "build": "tsc",
     "start": "node dist/cli.js",
+    "predev": "node scripts/sync-templates.mjs",
     "dev": "tsx src/cli.ts",
     "test": "node dist/cli.js --url https://example.com"
   },

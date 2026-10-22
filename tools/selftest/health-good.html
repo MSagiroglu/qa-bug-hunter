@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Health good</title>
+<link rel="icon" href="data:,">
+<style>
+  body { font-family: sans-serif; margin: 16px; }
+  main { max-width: 600px; }
+  .spin { width: 16px; height: 16px; border: 2px solid #888; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Orders</h1>
+  <p id="status">Loading</p>
+  <div class="spin" aria-hidden="true"></div>
+  <button id="save">Save</button>
+</main>
+<script>
+  // Two different GETs (different query) and one POST: none of this is a duplicate.
+  Promise.all([
+    fetch('/api/ok?page=1').then((r) => r.json()),
+    fetch('/api/ok?page=2').then((r) => r.json()),
+    fetch('/api/save', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"n":1}' }).then((r) => r.json()),
+  ]).then(() => { document.getElementById('status').textContent = 'Ready'; });
+</script>
+</body>
+</html>

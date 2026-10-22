@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Selftest: legitimate patterns</title>
+<style>
+  /* Patterns that look odd to a naive scanner but are correct. Must yield nothing above info. */
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Arial, sans-serif; font-size: 16px; line-height: 24px; color: #1e293b; background: #f9fafb; }
+  .sticky { position: sticky; top: 0; z-index: 5; background: #ffffff; color: #1e293b; padding: 8px 16px; border-bottom: 1px solid #cbd5e1; }
+  .sticky h1 { margin: 0; font-size: 20px; line-height: 28px; font-weight: 700; }
+  .drawer { position: fixed; top: 0; left: 0; bottom: 0; width: 280px; transform: translateX(-100%); background: #ffffff; color: #1e293b; padding: 16px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  .gone { display: none; width: 2000px; }
+  main { max-width: 960px; margin: 0 auto; padding: 16px; }
+  section { margin: 0 0 24px; }
+  h2 { margin: 0 0 8px; font-size: 18px; line-height: 26px; font-weight: 700; color: #1e293b; }
+  .carousel { display: flex; gap: 12px; overflow-x: auto; padding: 4px 0; }
+  .slide { flex: 0 0 240px; height: 80px; padding: 12px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; color: #1e293b; }
+  .badges { display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge { display: inline-flex; align-items: center; height: 28px; padding: 0 12px; font-size: 14px; line-height: 20px; font-weight: 700; border-radius: 14px; }
+  .b-ok { background: #dcfce7; color: #14532d; }
+  .b-warn { background: #fef3c7; color: #78350f; }
+  .b-bad { background: #fee2e2; color: #7f1d1d; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 0 16px; font: inherit; font-size: 16px; color: #ffffff; background: #2563eb; border: 0; border-radius: 6px; cursor: pointer; }
+  .btn:disabled { background: #e5e7eb; color: #6b7280; cursor: not-allowed; }
+  .surface { padding: 16px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; margin: 0 0 12px; color: #1e293b; }
+  .surface.alt { background: #f3f4f6; }
+  .surface.page { background: #f9fafb; }
+</style>
+</head>
+<body>
+<header class="sticky"><h1>Legit patterns</h1><a class="sr-only" href="#main">Skip to content</a></header>
+<aside class="drawer" aria-label="Menu"><p>Drawer content</p><a href="#main" style="color:#2563eb">Home</a></aside>
+<div class="gone">Hidden block that is wide</div>
+<main id="main">
+  <section>
+    <h2>Carousel</h2>
+    <div class="carousel" id="carousel">
+      <div class="slide">Slide one</div><div class="slide">Slide two</div><div class="slide">Slide three</div>
+      <div class="slide">Slide four</div><div class="slide">Slide five</div><div class="slide">Slide six</div>
+    </div>
+  </section>
+  <section>
+    <h2>Status</h2>
+    <div class="badges">
+      <span class="badge b-ok">Active</span><span class="badge b-warn">Pending</span><span class="badge b-bad">Failed</span>
+    </div>
+  </section>
+  <section>
+    <h2>Actions</h2>
+    <div class="row">
+      <button type="button" class="btn">Save</button>
+      <button type="button" class="btn">Publish</button>
+      <button type="button" class="btn" disabled>Archive</button>
+    </div>
+  </section>
+  <section>
+    <h2>Avatar with corner badge</h2>
+    <div class="avatar" style="width:40px;height:40px;border-radius:50%;background:#e5e7eb;position:relative"><i style="position:absolute;right:0;top:0;width:10px;height:10px;border-radius:50%;background:#16a34a"></i></div>
+  </section>
+  <section>
+    <h2>Surfaces</h2>
+    <div class="surface">Card on the page background</div>
+    <div class="surface alt">Alternate card on the neutral ramp</div>
+    <div class="surface page">Inset area using the page tone</div>
+  </section>
+</main>
+</body>
+</html>

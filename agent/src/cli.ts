@@ -2,6 +2,7 @@
 
 import { Command } from 'commander';
 import { Orchestrator } from './orchestrator.js';
+import { parseViewports } from './lib/layout.js';
 
 const program = new Command();
 
@@ -14,16 +15,18 @@ program
   .command('test')
   .description('Run QA tests on a target URL')
   .requiredOption('-u, --url <url>', 'Target URL to test')
-  .option('-s, --suites <suites>', 'Test suites to run (comma-separated: security,input,responsive,accessibility,navigation,overlay,rapid,api,all; rapid is opt-in, not in all)', 'all')
+  .option('-s, --suites <suites>', 'Test suites to run (comma-separated: security,input,responsive,accessibility,navigation,overlay,layout,health,rapid,api,all; rapid is opt-in, not in all; layout and health are read-only)', 'all')
   .option('-o, --output <dir>', 'Output directory for reports', './docs/qa-reports')
   .option('--headless', 'Run browser in headless mode (default: headed; headless automatically when CI or QA_HEADLESS=1 is set)', false)
   .option('--insecure', 'Disable browser web security (same-origin/site isolation). Opt-in; logs a warning', false)
   .option('--domain <name>', 'Domain pack name (default: auto-detect from packs dir; none if absent)')
   .option('--rapid-max-clicks <n>', 'Hard cap on rapid-suite click attempts per run', '12')
+  .option('--viewports <list>', 'Layout suite viewports, comma-separated WIDTHxHEIGHT (default: 375x812,812x375,768x1024,1280x800,1920x1080)')
   .option('--repo <path>', 'Repo root used for domain pack marker detection (default: cwd)')
   .option('--timeout <ms>', 'Browser timeout in milliseconds', '60000')
   .action(async (options) => {
     const suites: string[] = options.suites.split(',').map((x: string) => x.trim()).filter(Boolean);
+    try { parseViewports(options.viewports); } catch (e) { console.error('Error:', (e as Error).message); process.exit(1); }
     // API-only runs need no visible browser window.
     const apiOnly = suites.length > 0 && suites.every(x => x === 'api');
     // Headed when someone is watching; headless for API-only, CI or QA_HEADLESS=1.
@@ -55,6 +58,7 @@ program
       testSuites: suites,
       domain: options.domain,
       repo: options.repo,
+      viewports: options.viewports,
       rapidMaxClicks: Math.max(2, parseInt(options.rapidMaxClicks) || 12),
     });
 

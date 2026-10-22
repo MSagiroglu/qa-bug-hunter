@@ -3,6 +3,8 @@ import { DOMAnalysis } from './analyzer.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
+import { renderLayoutDetails, renderHealthDetails } from './render.js';
+
 export interface ReportConfig {
   outputDir: string;
   format: 'markdown' | 'html' | 'json';
@@ -179,7 +181,12 @@ ${result.message}
 
 `;
 
-      if (result.details) {
+      const kind = result.details?.kind;
+      if (kind === 'layout-matrix') {
+        report += renderLayoutDetails(result.details);
+      } else if (kind === 'health') {
+        report += renderHealthDetails(result.details);
+      } else if (result.details) {
         report += `**Technical Details:**
 \`\`\`json
 ${JSON.stringify(result.details, null, 2)}

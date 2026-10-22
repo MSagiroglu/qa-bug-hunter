@@ -1,6 +1,7 @@
 import { TestResult } from './executor.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { renderLayoutDetails, renderHealthDetails } from './render.js';
 
 export interface TicketConfig {
   outputDir: string;
@@ -156,6 +157,18 @@ export class TicketGenerator {
       return `The application should meet WCAG 2.1 accessibility guidelines:\n- All images should have descriptive alt text\n- All form inputs should have associated labels\n- Heading hierarchy should be logical\n- Keyboard navigation should work properly`;
     }
     
+    if (testId.startsWith('LAY')) {
+      return `Layout is consistent at every supported viewport:
+- No horizontal scroll or off-screen elements
+- No overlapping controls or clipped text
+- Aligned, evenly spaced elements of one role with identical size and color
+- Text contrast and tap targets meet WCAG 2.2`;
+    }
+
+    if (testId.startsWith('HLT')) {
+      return `The screen loads and works without console errors, uncaught exceptions, HTTP 4xx/5xx responses, slow responses or duplicate requests`;
+    }
+
     if (testId.startsWith('NAV')) {
       return `The application should have:\n- No broken internal links\n- No JavaScript console errors\n- Proper error handling for failed requests`;
     }
@@ -187,6 +200,8 @@ export class TicketGenerator {
     if (testId.startsWith('INPUT')) return 'Input Validation';
     if (testId.startsWith('RESP')) return 'Responsive Design';
     if (testId.startsWith('A11Y')) return 'Accessibility';
+    if (testId.startsWith('LAY')) return 'Layout';
+    if (testId.startsWith('HLT')) return 'Screen Health';
     if (testId.startsWith('NAV')) return 'Navigation';
     return 'General';
   }
@@ -196,6 +211,8 @@ export class TicketGenerator {
     if (testId.startsWith('INPUT')) return ['Forms', 'Input Validation'];
     if (testId.startsWith('RESP')) return ['CSS', 'Layout', 'Responsive'];
     if (testId.startsWith('A11Y')) return ['Accessibility', 'HTML'];
+    if (testId.startsWith('LAY')) return ['CSS', 'Layout'];
+    if (testId.startsWith('HLT')) return ['Frontend', 'Network'];
     if (testId.startsWith('NAV')) return ['Navigation', 'Links'];
     return ['General'];
   }

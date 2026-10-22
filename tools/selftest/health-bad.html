@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Health bad</title>
+<link rel="icon" href="data:,">
+<style>
+  @font-face { font-family: LateFont; src: url('/late.woff2') format('woff2'); }
+  body { font-family: LateFont, sans-serif; margin: 16px; }
+  main { max-width: 600px; }
+  #mover { width: 80px; height: 24px; background: #36c; animation: slide 1.5s ease-in-out 1 forwards; }
+  @keyframes slide { from { margin-left: 0; } to { margin-left: 200px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Orders</h1>
+  <p>Late font text</p>
+  <div id="mover"></div>
+  <img id="late" width="100" height="100" alt="late" src="/late.png">
+  <button id="save">Save</button>
+</main>
+<script>
+  // Seeded defects, one each.
+  console.error('seeded console error token=secret123');
+  setTimeout(() => { throw new Error('seeded uncaught exception'); }, 50);
+  fetch('/api/err500?token=secret123');
+  fetch('/api/missing');
+  fetch('/api/slow');
+  // Same POST twice within 200 ms (double submit).
+  const post = () => fetch('/api/save', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"secret":"topsecretbody"}' });
+  post();
+  setTimeout(post, 200);
+</script>
+</body>
+</html>

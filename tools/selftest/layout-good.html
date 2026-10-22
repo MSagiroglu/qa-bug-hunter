@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Selftest: good layout</title>
+<style>
+  /* Palette (exact values, no near-misses): text #1e293b #475569 #ffffff; surfaces #ffffff #e2e8f0 #1e293b #2563eb; border #cbd5e1 */
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Arial, sans-serif; font-size: 16px; line-height: 24px; color: #1e293b; background: #ffffff; }
+  .top { background: #1e293b; color: #ffffff; padding: 8px 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  .top h1 { margin: 0; font-size: 20px; line-height: 28px; font-weight: 700; color: #ffffff; }
+  .top nav { display: flex; gap: 8px; }
+  .navlink { display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 12px; color: #ffffff; text-decoration: none; font-size: 16px; }
+  main { max-width: 960px; margin: 0 auto; padding: 16px; }
+  section { margin: 0 0 24px; }
+  h2 { margin: 0 0 8px; font-size: 18px; line-height: 26px; font-weight: 700; color: #1e293b; }
+  .muted { margin: 0 0 8px; font-size: 14px; line-height: 20px; color: #475569; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 16px; font: inherit; font-size: 16px; color: #1e293b; background: #e2e8f0; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; }
+  .btn.primary { color: #ffffff; background: #2563eb; border: 0; }
+  .icons { display: flex; gap: 8px; }
+  .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; background: #e2e8f0; border: 0; border-radius: 50%; color: #1e293b; cursor: pointer; }
+  .icon-btn svg { width: 20px; height: 20px; display: block; }
+  .field { margin: 0 0 12px; }
+  .field label { display: block; margin: 0 0 4px; font-size: 14px; line-height: 20px; color: #475569; }
+  .field input { display: block; width: 100%; height: 44px; padding: 0 12px; font: inherit; font-size: 16px; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; }
+  .actions { display: flex; gap: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { display: inline-flex; align-items: center; height: 32px; padding: 0 12px; font-size: 14px; line-height: 20px; color: #1e293b; background: #e2e8f0; border-radius: 16px; }
+  #hscroll-box { width: 100%; max-width: 600px; height: 40px; background: #e2e8f0; }
+  .card { width: 200px; padding: 8px; background: #e2e8f0; color: #1e293b; }
+  #card-child { width: 100%; height: 32px; background: #ffffff; }
+  .pair { display: flex; }
+  .pair .btn + .btn { margin-left: 8px; }
+  .help-row { display: flex; align-items: center; }
+  .tinybtn { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-left: 8px; padding: 0; font: inherit; font-size: 14px; color: #1e293b; background: #e2e8f0; border: 0; border-radius: 50%; cursor: pointer; }
+  .label-box { display: inline-block; width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; line-height: 20px; color: #1e293b; }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Account settings</h1>
+  <nav aria-label="Primary">
+    <a class="navlink" href="#overview">Overview</a>
+    <a class="navlink" href="#billing">Billing</a>
+    <a class="navlink" href="#team">Team</a>
+  </nav>
+</header>
+<main>
+  <section>
+    <h2>Toolbar</h2>
+    <div class="toolbar" id="toolbar">
+      <button type="button" class="btn primary" id="primary-a" data-role="primary">Save</button>
+      <button type="button" class="btn primary" id="primary-b" data-role="primary">Publish</button>
+      <button type="button" class="btn" id="btn-cancel">Cancel</button>
+      <button type="button" class="btn" id="btn-short">Export</button>
+      <button type="button" class="btn" id="btn-print">Print</button>
+    </div>
+  </section>
+  <section>
+    <h2>Icon buttons</h2>
+    <div class="icons" id="icons">
+      <button type="button" class="icon-btn" id="icon-off" aria-label="Add"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M9 3h2v6h6v2h-6v6H9v-6H3V9h6z" fill="currentColor"/></svg></button>
+      <button type="button" class="icon-btn" id="icon-2" aria-label="Edit"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 14l9-9 3 3-9 9H3z" fill="currentColor"/></svg></button>
+      <button type="button" class="icon-btn" id="icon-3" aria-label="Remove"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 9h12v2H4z" fill="currentColor"/></svg></button>
+    </div>
+  </section>
+  <section>
+    <h2>Profile</h2>
+    <form id="profile" onsubmit="return false">
+      <div class="field"><label for="f-name">Full name</label><input id="f-name" type="text" value="Jane Doe"></div>
+      <div class="field"><label for="f-email">Email</label><input id="f-email" type="text" value="jane@example.test"></div>
+      <div class="field" id="field-offset"><label for="f-phone">Phone</label><input id="f-phone" type="text" value="555 0100"></div>
+      <div class="field"><label for="f-city">City</label><input id="f-city" type="text" value="Springfield"></div>
+      <div class="actions"><button type="button" class="btn primary">Save profile</button><button type="button" class="btn">Reset</button></div>
+    </form>
+  </section>
+  <section>
+    <h2>Labels</h2>
+    <div class="chips" id="gap-row">
+      <span class="chip">Alpha</span>
+      <span class="chip">Beta</span>
+      <span class="chip" id="chip-gap">Gamma</span>
+      <span class="chip">Delta</span>
+      <span class="chip">Epsilon</span>
+    </div>
+  </section>
+  <section>
+    <h2>Layout probes</h2>
+    <div id="hscroll-box"></div>
+    <div class="card" id="card-over"><div id="card-child"></div></div>
+    <p class="muted" id="low-contrast">Secondary note with comfortable contrast.</p>
+    <div class="pair" id="pair"><button type="button" class="btn" id="ov-a">First</button><button type="button" class="btn" id="ov-b">Second</button></div>
+    <div class="help-row"><button type="button" class="btn" id="help-btn">Help</button><button type="button" class="tinybtn" id="tiny-btn" aria-label="Info">i</button></div>
+    <p><span class="label-box" id="trunc">Short label</span></p>
+  </section>
+</main>
+</body>
+</html>

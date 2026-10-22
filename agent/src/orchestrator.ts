@@ -15,6 +15,8 @@ import {
 import { Reporter, ReportConfig } from './lib/reporter.js';
 import { TicketGenerator, TicketConfig, Ticket } from './lib/ticket.js';
 import { resolveDomain } from './lib/domain.js';
+import { createLayoutSuite, parseViewports } from './lib/layout.js';
+import { attachRunHealth, createHealthSuite, runHealthResult } from './lib/health.js';
 import { EventEmitter } from 'events';
 
 export interface OrchestratorConfig {
@@ -29,6 +31,8 @@ export interface OrchestratorConfig {
   repo?: string;
   /** Hard cap on rapid-suite click attempts for the whole run (default 12) */
   rapidMaxClicks?: number;
+  /** Layout suite viewport matrix, e.g. "375x812,1280x800" (default: built-in matrix) */
+  viewports?: string;
 }
 
 export interface OrchestratorEvents {
@@ -106,11 +110,32 @@ export class Orchestrator extends EventEmitter {
       });
 
       // Run selected test suites
-      const testSuites = this.getSelectedTestSuites();
-      for (const suite of testSuites) {
-        executor.reset();
-        const results = await executor.runTestSuite(suite);
-        this.testResults.push(...results);
+      // Passive health gate for the whole run (read-only page.on listeners).
+      const gate = attachRunHealth(page);
+      const testSuites = this.getSelectedTestSuites(gate);
+      const healthSelected = this.getSelectedSuiteNames().includes('health');
+      let otherSuites = 0;
+      try {
+        for (const { name, suite } of testSuites) {
+          executor.reset();
+          const results = await executor.runTestSuite(suite);
+          this.testResults.push(...results);
+          if (name !== 'health') {
+            gate.snapshot(name);
+            otherSuites++;
+          } else {
+            gate.stop();
+            gate.start();
+          }
+        }
+        if (healthSelected && otherSuites > 0) {
+          const segs = gate.snapshots.filter(s => s.label !== 'page load');
+          const runResult = runHealthResult(segs);
+          this.testResults.push(runResult);
+          this.emit('test:completed', runResult);
+        }
+      } finally {
+        gate.stop();
       }
 
       this.emit('phase:completed', 'Test Execution');
@@ -166,14 +191,16 @@ export class Orchestrator extends EventEmitter {
   }
 
   private getSelectedSuiteNames(): string[] {
-    const known = ['security', 'input', 'responsive', 'accessibility', 'navigation', 'overlay', 'rapid', 'api'];
+    const known = ['security', 'input', 'responsive', 'accessibility', 'navigation', 'overlay', 'rapid', 'api', 'layout', 'health'];
     // rapid fires repeated mutating clicks, so it is opt-in and not part of 'all'.
     if (this.config.testSuites.includes('all')) return known.filter(n => n !== 'rapid');
     return known.filter(n => this.config.testSuites.includes(n));
   }
 
-  private getSelectedTestSuites() {
+  private getSelectedTestSuites(gate: ReturnType<typeof attachRunHealth>) {
     const allSuites = [
+      // health first: it judges a clean reload of the target before other suites touch the page
+      { name: 'health', suite: () => createHealthSuite(gate, this.config.url) },
       { name: 'security', suite: () => createSecurityTestSuite() },
       { name: 'input', suite: () => createInputTestSuite() },
       { name: 'responsive', suite: () => createResponsiveTestSuite() },
@@ -181,11 +208,13 @@ export class Orchestrator extends EventEmitter {
       { name: 'navigation', suite: () => createNavigationTestSuite() },
       { name: 'overlay', suite: () => createOverlaySuite() },
       { name: 'rapid', suite: () => createRapidSuite(this.config.rapidMaxClicks ?? 12) },
+      // layout navigates and resizes the page per viewport (read-only), so it runs after the page-driving suites
+      { name: 'layout', suite: () => createLayoutSuite(this.config.url, parseViewports(this.config.viewports)) },
       // api last: it replays writes captured while the other suites ran
       { name: 'api', suite: () => createApiSuite(() => this.browserManager.getNetworkLog(), this.config.url) },
     ];
     const wanted = new Set(this.getSelectedSuiteNames());
-    return allSuites.filter(s => wanted.has(s.name)).map(s => s.suite());
+    return allSuites.filter(s => wanted.has(s.name)).map(s => ({ name: s.name, suite: s.suite() }));
   }
 
   private printSummary(executionTime: number, reportPath: string, videoPath: string | null): void {
