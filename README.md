@@ -136,6 +136,13 @@ up on the happy path:
   check what's actually in the database). When a database connection is
   already available, it queries it directly instead of trusting an API
   re-fetch that could share the same bug as the thing it's checking.
+- **Field-dependency defects within one form.** A field that passes every
+  mutation when tested alone can still break once another field drives it —
+  a country selection that changes the city list, phone format or tax-id
+  pattern; a plan tier that changes which add-ons are required. The skill
+  re-runs the dependent field's own mutations *after* the driver changes,
+  and checks that a stale dependent value is cleared or re-validated when
+  the driver changes again, not silently kept.
 - **Ripple-effect defects.** A shared/library record gets created,
   edited, deleted, or deactivated — does every other screen that consumes
   it reflect that correctly? This is the class of bug that only shows up
@@ -316,6 +323,36 @@ Learned from a multi-day comparison of a legacy UI and its rewrite over one back
   attach, provision only if none"; "refresh needed = DEFECT" is now a candidate
   finding routed through the oracle; "read ALL references" is now scoped to
   the selected mode, lenses and triggers.
+
+## What changed in the 5 November 2026 update (field dependencies, one submission-flow checklist)
+
+Prompted by a recurring pattern in manual exploratory testing: a tester hands
+an AI tool a fixed per-field checklist (empty, whitespace-only, leading/
+trailing whitespace, 1000+ characters, special characters and emoji, the
+app's own non-Latin script, copy-paste, double-click submit, back button
+after submit, session expiry mid-fill, mobile and other browsers), asks it to
+also propose risks the list missed and to find dependencies between fields,
+then reviews the result critically rather than running it unreviewed. This
+skill already covered nearly all of those individually, scattered across
+several files; this update makes two things explicit and mandatory instead of
+implicit and easy to skip:
+
+- **Field dependency / cascading fields** (`references/core/input-mutation-catalog.md`):
+  promoted from a one-line note under dropdowns to its own mandatory
+  cross-field mutation. For every field whose value reveals, hides, requires,
+  repopulates or reformats another field, the dependent field's own mutations
+  are re-run *after* the driver changes (not only once with the default
+  driver value), and changing the driver back checks whether a stale
+  dependent value is cleared, re-validated, or silently kept.
+- **Submission-Flow Mutations**, one consolidated checklist
+  (`references/core/input-mutation-catalog.md`): double-click/rapid submit,
+  browser back button after submit, session/token expiry mid-fill, and
+  cross-device/cross-browser — each a pointer to the file with the full
+  detail, so a form is not called covered with one of these silently missing.
+- **Applying this catalog** now says explicitly, when generating mutations
+  with an AI tool: ask it to also propose risks not in the list and to find
+  field-dependency chains, then review the result critically before
+  executing — a generated list is a draft, not a script to run unreviewed.
 
 ## What changed in the 22 October 2026 update (lessons from ten days of daily use)
 

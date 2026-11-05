@@ -65,7 +65,8 @@ viewport; open at 320 px and in landscape.
   UI's own dropdown options is usually low-yield since the UI already
   constrains it
 - combinations where one dropdown's valid options depend on another
-  field's value (test the dependency, not just each dropdown alone)
+  field's value — see **Field Dependency / Cascading Fields** below for the
+  general case beyond dropdowns
 
 ## Email
 
@@ -76,6 +77,21 @@ viewport; open at 320 px and in landscape.
 
 ## Cross-Field & State Mutations
 
+- **Field dependency / cascading fields** (mandatory whenever discovery finds
+  one): any field whose value visibly changes another field — reveals/hides
+  it, changes its required-ness or validation rule, repopulates its options,
+  or changes its format (country → city list, phone format, tax-id pattern,
+  currency symbol; plan type → available add-ons; date range → which fields
+  become required). For each driver value: (1) re-run the dependent field's
+  own mutations (empty, boundary, invalid) *after* the driver has changed, not
+  only once with the default driver value; (2) change the driver a second
+  time after the dependent field already has a value, and check that stale
+  value is cleared, re-validated, or flagged, not silently kept; (3) submit
+  with the driver changed back and forth rapidly (the cascade may be async
+  and race). A field that passes every mutation in isolation can still break
+  only once its dependency fires — do not consider a form covered until every
+  driver → dependent relationship discovery found has been exercised at least
+  once in this sequence.
 - **Empty form submission**: submit with all fields empty/default — highest
   yield test for backend validation gaps
 - **Data collision**: use ONLY `TEST_*` records created in this run to test
@@ -99,6 +115,31 @@ viewport; open at 320 px and in landscape.
 - **Empty file upload**: 0-byte file, wrong extension, oversized file,
   symlink in filename
 
+## Submission-Flow Mutations (per form, not per field)
+
+A compact, per-form checklist to run once the field-level mutations above are
+done — these live in detail in other files; this is the one place that lists
+all of them together so none gets skipped when handing a form to an agent:
+
+- **Double-click / rapid repeated submit**: fire the submit action 2x then 5x
+  in quick succession. In-flight guard, loading state, duplicate requests,
+  duplicate records — `references/core/rapid-action-testing.md`,
+  `references/core/critical-defect-patterns.md` ("Double-submit").
+- **Browser back button after submit**: submit successfully, press Back, then
+  Forward. Does the form re-show stale/submitted data as if unsaved, resubmit
+  on Forward, or correctly land on the post-submit state? —
+  `references/lenses/six-directions.md` direction 3,
+  `references/invariants/overlay-dialog.md` (OV14) for forms inside a dialog.
+- **Session/token expiry mid-fill**: fill the form, leave the tab idle past
+  the session or token lifetime, then submit. Clean re-auth with no lost
+  input, or a clear message — not a silent save failure, a raw 401, or the
+  action running as a different/stale user — `references/core/perturbation-dimensions.md`
+  ("Token or session expiry while backgrounded").
+- **Cross-device / cross-browser**: the same form at mobile width and on
+  whatever additional browser engines are available (see "Cross-Browser
+  Verification" in `references/core/test-design-techniques.md`); mobile also
+  needs `references/lenses/mobile/mobile-exploratory-considerations.md`.
+
 ## Applying this catalog
 
 1. From discovery, get the field's real type and constraint.
@@ -111,6 +152,19 @@ viewport; open at 320 px and in landscape.
 4. **Always test data collision** using only `TEST_*` data created in this
    run — it catches cascade/unique/reference issues without touching
    existing data.
-5. Prioritize per `references/core/test-design-techniques.md` before executing.
-6. For write-capable features, combine with
+5. **Always exercise every field-dependency chain discovery found** (a field
+   that reveals, requires, repopulates, or reformats another) — see "Field
+   dependency / cascading fields" above. A form with no such relationship
+   skips this step; most forms with 2+ related fields have at least one.
+6. **Always run the Submission-Flow checklist once per form**: double-click
+   submit, back button after submit, session expiry mid-fill, cross-device —
+   see the section above.
+7. Prioritize per `references/core/test-design-techniques.md` before executing.
+8. For write-capable features, combine with
    `references/core/advanced-exploratory-attacks.md` race condition scenarios.
+9. Generating mutations with an AI tool: hand it this catalog as the
+   baseline, explicitly ask it to (a) propose risks not in the list and (b)
+   find field-dependency chains by reading the form, then review the result
+   critically before executing — drop what does not apply to this form,
+   keep what you know the product needs that the catalog missed. A generated
+   list is a draft, never a script to run unreviewed.
